@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>2D Kronig-Penney Band Sandbox</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">Matrix mechanics in the browser</p>
+          <h1>2D Kronig-Penney band emergence sandbox</h1>
+          <p class="lede">
+            Tune a periodic potential and watch the high-symmetry band path
+            update beside the matching real-space well.
+          </p>
+        </div>
+        <div class="metric-card">
+          <span id="gapLabel">X-point gap</span>
+          <strong id="gapReadout">0.00000</strong>
+          <p>Zone-boundary splitting from the periodic potential.</p>
+        </div>
+      </section>
+
+      <section class="controls panel" aria-label="Simulation controls">
+        <div class="control-group">
+          <h2>Potential</h2>
+          <label title="Choose the periodic potential used in the Hamiltonian.">
+            <span>Potential type <b data-readout="potentialType">square</b></span>
+            <select id="potentialType">
+              <option value="square" selected>square well</option>
+              <option value="gaussian">gaussian</option>
+              <option value="muffin-tin">muffin-tin</option>
+            </select>
+            <small>Select the periodic potential model.</small>
+          </label>
+          <label title="Depth of the attractive square well. Larger V0 increases coupling and opens gaps.">
+            <span>Well depth V0 <b data-readout="wellDepth">2.00</b></span>
+            <input id="wellDepth" type="range" min="0" max="6" step="0.1" value="2" />
+            <small>Strength of the periodic potential.</small>
+          </label>
+          <label id="fillControl" title="Fraction of the unit-cell side occupied by the square well.">
+            <span>Fill fraction <b data-readout="fillFraction">0.50</b></span>
+            <input id="fillFraction" type="range" min="0.1" max="0.9" step="0.05" value="0.5" />
+            <small>Width of the well relative to the cell.</small>
+          </label>
+          <label id="sigmaControl" title="Width of the Gaussian in lattice units." hidden>
+            <span>Gaussian σ <b data-readout="sigma">0.18</b></span>
+            <input id="sigma" type="range" min="0.05" max="0.5" step="0.01" value="0.18" />
+            <small>Standard deviation of the Gaussian well.</small>
+          </label>
+          <label id="radiusControl" title="Radius of the circular muffin-tin well." hidden>
+            <span>Radius R <b data-readout="radius">0.22</b></span>
+            <input id="radius" type="range" min="0.05" max="0.45" step="0.01" value="0.22" />
+            <small>Circle radius in lattice units.</small>
+          </label>
+        </div>
+
+        <div class="control-group">
+          <h2>Lattice</h2>
+          <label title="Choose the Bravais lattice used to build reciprocal vectors and the k-path.">
+            <span>Lattice type <b data-readout="latticeType">square</b></span>
+            <select id="latticeType">
+              <option value="square" selected>square</option>
+              <option value="hexagonal">hexagonal</option>
+            </select>
+            <small>Switches reciprocal geometry and high-symmetry path.</small>
+          </label>
+          <label id="basisTypeControl" title="Choose the basis inside the Bravais unit cell.">
+            <span>Basis <b data-readout="basisType">single-site</b></span>
+            <select id="basisType">
+              <option value="single" selected>single-site</option>
+              <option value="graphene">graphene-like two-site</option>
+            </select>
+            <small>Two-site basis is available for hexagonal lattice preview.</small>
+          </label>
+          <label title="Real-space lattice spacing. It sets the Brillouin-zone size.">
+            <span>Lattice constant a <b data-readout="latticeConstant">1.00</b></span>
+            <input id="latticeConstant" type="range" min="0.5" max="3" step="0.05" value="1" />
+            <small>Unit-cell length.</small>
+          </label>
+        </div>
+
+        <div class="control-group">
+          <h2>Numerics</h2>
+          <label title="Plane-wave cutoff. Low values are faster but less converged.">
+            <span>Basis n_max <b data-readout="nMax">2</b></span>
+            <input id="nMax" type="range" min="0" max="4" step="1" value="2" />
+            <small>Controls Hamiltonian size.</small>
+          </label>
+          <label class="toggle" title="Increase n_max automatically until the zone-boundary gap stops changing.">
+            <input id="autoConverge" type="checkbox" />
+            <span>Auto Convergence</span>
+          </label>
+          <div class="inline-status-block" aria-live="polite">
+            <p id="autoConvergenceStatus" class="inline-status">n_max = 2 (size = 25)</p>
+            <p id="autoConvergenceDelta" class="inline-substatus">Δgap = --</p>
+            <p id="autoConvergenceTolerance" class="inline-substatus">tol = 1×10⁻³</p>
+            <p id="autoConvergenceResult" class="inline-substatus">Manual mode</p>
+          </div>
+          <label title="Number of sampled points per high-symmetry segment.">
+            <span>k resolution <b data-readout="pointsPerSegment">32</b></span>
+            <input id="pointsPerSegment" type="range" min="8" max="64" step="4" value="32" />
+            <small id="kPathHint">Sampling along Γ → X → M → Γ.</small>
+          </label>
+          <label title="Number of lowest bands drawn in the plot.">
+            <span>Bands shown <b data-readout="bandsToPlot">8</b></span>
+            <input id="bandsToPlot" type="range" min="1" max="16" step="1" value="8" />
+            <small>Visual display only.</small>
+          </label>
+        </div>
+
+        <div class="control-group actions">
+          <h2>View</h2>
+          <label class="toggle" title="Show folded free-electron parabolas for comparison.">
+            <input id="showFree" type="checkbox" checked />
+            <span>Overlay E = k² bands</span>
+          </label>
+          <div class="emergence-box">
+            <div class="emergence-head">
+              <span>Emergence of band structure</span>
+              <b data-readout="lambda">1.00</b>
+            </div>
+            <label title="Interpolation from free-electron limit (λ = 0) to full periodic potential (λ = 1).">
+              <span>λ control</span>
+              <input id="emergenceLambda" type="range" min="0" max="1" step="0.01" value="1" />
+              <small>Effective potential = λ × V0.</small>
+            </label>
+            <button id="emergencePlay" type="button">Play</button>
+          </div>
+          <button id="resetDefaults" type="button">Reset to default</button>
+        </div>
+      </section>
+
+      <section class="views">
+        <article class="panel chart-card">
+          <div class="card-heading">
+            <h2>Band structure</h2>
+            <p id="hoverReadout">Hover over a band to inspect k and energy.</p>
+          </div>
+          <div class="canvas-wrap">
+            <canvas id="bandCanvas" aria-label="Band structure canvas"></canvas>
+            <div id="bandTooltip" class="band-tooltip" hidden></div>
+          </div>
+          <div class="path-guide" aria-label="High-symmetry path guide">
+            <div class="path-segment">
+              <strong id="pathSegmentLabel0">Γ → X</strong>
+              <span id="pathSegmentDescription0">Approach the Brillouin-zone boundary.</span>
+            </div>
+            <div class="path-segment">
+              <strong id="pathSegmentLabel1">X → M</strong>
+              <span id="pathSegmentDescription1">Stay on the boundary while band splitting persists.</span>
+            </div>
+            <div class="path-segment">
+              <strong id="pathSegmentLabel2">M → Γ</strong>
+              <span id="pathSegmentDescription2">Return to the zone center where the gap closes.</span>
+            </div>
+          </div>
+        </article>
+        <article class="panel chart-card">
+          <div class="card-heading">
+            <h2>Real-space potential</h2>
+            <div class="realspace-tools">
+              <div class="segmented-toggle" role="group" aria-label="Real-space view mode">
+                <button id="showPotentialView" type="button" class="mini-toggle is-active">Show Potential</button>
+                <button id="showWavefunctionView" type="button" class="mini-toggle">Show Wavefunction</button>
+              </div>
+              <div class="segmented-toggle" role="group" aria-label="Wavefunction visualization mode">
+                <button id="waveModeDensity" type="button" class="mini-toggle is-active">|u<sub>k</sub>|²</button>
+                <button id="waveModeReal" type="button" class="mini-toggle">Re(u<sub>k</sub>)</button>
+                <button id="waveModePhase" type="button" class="mini-toggle">arg(u<sub>k</sub>)</button>
+              </div>
+              <p id="potentialCaption">Centered square well in one unit cell.</p>
+            </div>
+          </div>
+          <canvas id="potentialCanvas" aria-label="Real-space potential canvas"></canvas>
+          <p id="realSpaceSelectionLabel" class="selection-label">Click a band to inspect the periodic part u<sub>k</sub>(x,y).</p>
+        </article>
+      </section>
+
+      <section class="explain panel">
+        <div class="explain-head">
+          <div>
+            <h2>Physics notes</h2>
+            <p id="dynamicExplanation">Adjust V0 to see the periodic potential open a zone-boundary gap.</p>
+            <p id="dynamicExplanationDetail" class="detail-note">
+              At X, counter-propagating Bloch components satisfy the Bragg condition and split apart in energy.
+            </p>
+          </div>
+          <p id="convergenceWarning" class="warning" hidden>Warning: basis size may be insufficient for convergence.</p>
+        </div>
+        <dl class="quantity-grid">
+          <div>
+            <dt id="gapDetailLabel">X-point gap</dt>
+            <dd id="gapDetailReadout">0.00000</dd>
+          </div>
+          <div>
+            <dt>Lowest band minimum</dt>
+            <dd id="lowestBandMinReadout">0.00000</dd>
+          </div>
+          <div>
+            <dt>First-band bandwidth</dt>
+            <dd id="bandwidthReadout">0.00000</dd>
+          </div>
+          <div>
+            <dt>Hamiltonian size</dt>
+            <dd id="matrixReadout">25 × 25</dd>
+          </div>
+          <div>
+            <dt>Runtime</dt>
+            <dd id="statusReadout">Waiting</dd>
+          </div>
+        </dl>
+      </section>
+    </main>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
