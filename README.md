@@ -1,43 +1,70 @@
 # Band Structure Web Sandbox
 
-Static browser version of the square-lattice 2D Kronig-Penney MVP, now with square, Gaussian, and muffin-tin periodic potentials.
+Static browser app for interactive band-structure exploration. The app is plain HTML, CSS, and JavaScript with no build step.
 
-## Run
+## Run locally
 
-From this directory:
+From the project root:
 
 ```bash
 python3 -m http.server 8080
 ```
 
-Open:
+Then open:
 
 ```text
 http://127.0.0.1:8080
 ```
-
-The app has no build step and no external runtime dependency. It uses vanilla JavaScript modules and Canvas.
-
-## Features
-
-- Potential type selector for `square`, `gaussian`, and `muffin-tin`.
-- Sliders for `V0`, lattice constant `a`, fill fraction, Gaussian width `σ`, muffin-tin radius `R`, `n_max`, k-path resolution, and number of bands.
-- Browser-side Hamiltonian construction and Jacobi diagonalization.
-- Band plot along `Γ -> X -> M -> Γ`.
-- Real-space square, Gaussian, or muffin-tin periodic potential view generated from the same config.
-- Free-electron overlay toggle.
-- Dynamic physics notes for Bragg-reflection gap opening and low-basis convergence warnings.
-- Derived quantities: X-point gap, lowest band minimum, and first-band bandwidth.
-- True emergence mode with `λ` from `0 → 1`, where the effective potential is `λ × V0`.
-- Play/pause control for smooth band-formation animation from the free-electron limit.
-- X-point vertical highlight and shaded gap region.
-- Hover readout for nearest band point `(k, energy)`.
-- Grouped controls with parameter tooltips.
-- Reset-to-default control.
-- X-point gap readout and runtime readout.
 
 ## Validate
 
 ```bash
 node validate-web-solver.mjs
 ```
+
+## Share it with everyone
+
+This app is a static site, so the easiest hosting options are:
+
+### GitHub Pages
+
+Push the repo to GitHub, then in the repo settings:
+
+1. Open `Settings -> Pages`
+2. Set source to the branch you want to publish
+3. Set the published folder to `/ (root)`
+
+GitHub will give you a public URL like:
+
+```text
+https://your-username.github.io/your-repo-name/
+```
+
+### Netlify
+
+1. Sign in to Netlify
+2. Import the GitHub repo
+3. Leave build command empty
+4. Set publish directory to `.`
+
+### Vercel
+
+1. Import the GitHub repo
+2. Framework preset: `Other`
+3. Leave build command empty
+4. Output directory: `.`
+
+### Cloudflare Pages
+
+1. Connect the GitHub repo
+2. Build command: empty
+3. Build output directory: `.`
+
+## Notes
+
+- Do not host this by opening `index.html` directly as a `file://` URL. ES module imports should be served over HTTP.
+- The files that matter for deployment are:
+  - `index.html`
+  - `app.js`
+  - `solver.js`
+  - `styles.css`
