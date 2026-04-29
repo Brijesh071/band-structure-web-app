@@ -149,8 +149,33 @@
         </div>
       </section>
 
+      <section class="mobile-tabs" aria-label="Mobile section tabs">
+        <button id="mobileTabBands" type="button" class="is-active">Bands</button>
+        <button id="mobileTabRealSpace" type="button">Real Space</button>
+        <button id="mobileTabNotes" type="button">Notes</button>
+      </section>
+
+      <section class="mobile-numerics" aria-label="Mobile numerics summary">
+        <div>
+          <span>Gap</span>
+          <strong id="mobileGapReadout">0.00000</strong>
+        </div>
+        <div>
+          <span>n_max</span>
+          <strong id="mobileNMaxReadout">2</strong>
+        </div>
+        <div>
+          <span>Δgap</span>
+          <strong id="mobileDeltaReadout">--</strong>
+        </div>
+        <div>
+          <span>Status</span>
+          <strong id="mobileStatusReadout">Manual</strong>
+        </div>
+      </section>
+
       <section class="views">
-        <article class="panel chart-card">
+        <article id="bandPanel" class="panel chart-card mobile-tab-panel">
           <div class="card-heading">
             <h2>Band structure</h2>
             <p id="hoverReadout">Hover over a band to inspect k and energy.</p>
@@ -196,7 +221,7 @@
             </div>
           </div>
         </article>
-        <article class="panel chart-card">
+        <article id="realSpacePanel" class="panel chart-card mobile-tab-panel">
           <div class="card-heading">
             <h2>Real-space potential</h2>
             <div class="realspace-tools">
@@ -217,7 +242,7 @@
         </article>
       </section>
 
-      <section class="explain panel">
+      <section id="notesPanel" class="explain panel mobile-tab-panel">
         <div class="explain-head">
           <div>
             <h2>Physics notes</h2>
@@ -250,6 +275,28 @@
             <dd id="statusReadout">Waiting</dd>
           </div>
         </dl>
+      </section>
+
+      <section id="mobileStatePanel" class="mobile-state-panel" hidden aria-live="polite">
+        <div class="mobile-state-head">
+          <div>
+            <span class="mobile-state-eyebrow">Selected state</span>
+            <strong id="mobileStateTitle">Band 1 at k-point 0</strong>
+          </div>
+          <button id="mobileStateClose" type="button" class="mobile-state-close">Close</button>
+        </div>
+        <p id="mobileStateSummary" class="mobile-state-summary">
+          Tap a band to inspect its energy, wavefunction, and boundary-state context.
+        </p>
+        <div class="mobile-state-actions">
+          <button id="mobileStatePotential" type="button">Potential</button>
+          <button id="mobileStateWavefunction" type="button">Wavefunction</button>
+        </div>
+        <div class="mobile-state-actions mobile-state-modes">
+          <button id="mobileStateDensity" type="button">|u<sub>k</sub>|²</button>
+          <button id="mobileStateReal" type="button">Re(u<sub>k</sub>)</button>
+          <button id="mobileStatePhase" type="button">arg(u<sub>k</sub>)</button>
+        </div>
       </section>
     </main>
     <script type="module" src="./app.js"></script>

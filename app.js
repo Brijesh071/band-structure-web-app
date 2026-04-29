@@ -31,6 +31,15 @@ const controls = {
   inspectBoundaryUpper: document.querySelector("#inspectBoundaryUpper"),
   showPotentialView: document.querySelector("#showPotentialView"),
   showWavefunctionView: document.querySelector("#showWavefunctionView"),
+  mobileTabBands: document.querySelector("#mobileTabBands"),
+  mobileTabRealSpace: document.querySelector("#mobileTabRealSpace"),
+  mobileTabNotes: document.querySelector("#mobileTabNotes"),
+  mobileStateClose: document.querySelector("#mobileStateClose"),
+  mobileStatePotential: document.querySelector("#mobileStatePotential"),
+  mobileStateWavefunction: document.querySelector("#mobileStateWavefunction"),
+  mobileStateDensity: document.querySelector("#mobileStateDensity"),
+  mobileStateReal: document.querySelector("#mobileStateReal"),
+  mobileStatePhase: document.querySelector("#mobileStatePhase"),
   waveModeDensity: document.querySelector("#waveModeDensity"),
   waveModeReal: document.querySelector("#waveModeReal"),
   waveModePhase: document.querySelector("#waveModePhase"),
@@ -89,11 +98,23 @@ const readouts = {
   boundaryZoomCaption: document.querySelector("#boundaryZoomCaption"),
   boundaryStateReadout: document.querySelector("#boundaryStateReadout"),
   boundaryStateNote: document.querySelector("#boundaryStateNote"),
+  mobileGap: document.querySelector("#mobileGapReadout"),
+  mobileNMax: document.querySelector("#mobileNMaxReadout"),
+  mobileDelta: document.querySelector("#mobileDeltaReadout"),
+  mobileStatus: document.querySelector("#mobileStatusReadout"),
+  mobileStatePanel: document.querySelector("#mobileStatePanel"),
+  mobileStateTitle: document.querySelector("#mobileStateTitle"),
+  mobileStateSummary: document.querySelector("#mobileStateSummary"),
 };
 
 const bandCanvas = document.querySelector("#bandCanvas");
 const potentialCanvas = document.querySelector("#potentialCanvas");
 const boundaryZoomCanvas = document.querySelector("#boundaryZoomCanvas");
+const mobilePanels = {
+  bands: document.querySelector("#bandPanel"),
+  realSpace: document.querySelector("#realSpacePanel"),
+  notes: document.querySelector("#notesPanel"),
+};
 const bandTooltip = document.querySelector("#bandTooltip");
 const bandContext = bandCanvas.getContext("2d");
 const potentialContext = potentialCanvas.getContext("2d");
@@ -124,6 +145,7 @@ let lastRenderResult = null;
 let selectedBandState = null;
 let realSpaceMode = "potential";
 let wavefunctionMode = "density";
+let mobileActiveTab = "bands";
 let wavefunctionCache = new Map();
 let lastWavefunctionCacheKey = "";
 let autoConvergenceCache = new Map();
@@ -426,6 +448,7 @@ function inspectBoundaryState(bandIndex) {
   selectedBandState = { kIndex: zoom.centerIndex, bandIndex, gridSize: 64 };
   wavefunctionCache.delete(`${zoom.centerIndex}:${bandIndex}:64`);
   realSpaceMode = "wavefunction";
+  setMobileTab("realSpace");
   render();
 }
 
@@ -914,6 +937,41 @@ function updateSelectedStateSummary(config, result) {
     `E=${energy.toFixed(4)} | ${config.latticeType} lattice, ${basisLabel} basis`;
 }
 
+function setMobileTab(tab) {
+  mobileActiveTab = tab;
+  controls.mobileTabBands.classList.toggle("is-active", tab === "bands");
+  controls.mobileTabRealSpace.classList.toggle("is-active", tab === "realSpace");
+  controls.mobileTabNotes.classList.toggle("is-active", tab === "notes");
+  mobilePanels.bands.classList.toggle("is-mobile-hidden", tab !== "bands");
+  mobilePanels.realSpace.classList.toggle("is-mobile-hidden", tab !== "realSpace");
+  mobilePanels.notes.classList.toggle("is-mobile-hidden", tab !== "notes");
+}
+
+function updateMobileStatePanel(config, result) {
+  if (!selectedBandState || !result) {
+    readouts.mobileStatePanel.hidden = true;
+    return;
+  }
+
+  const { kIndex, bandIndex } = selectedBandState;
+  const [kx, ky] = result.kPoints[kIndex];
+  const energy = result.eigenvalues[kIndex][bandIndex];
+  const boundaryLabel = zoneBoundaryLabel(config);
+  const basisLabel = config.basisType === "graphene" ? "graphene-like two-site" : "single-site";
+
+  readouts.mobileStatePanel.hidden = false;
+  readouts.mobileStateTitle.textContent = `Band ${bandIndex + 1} at k-point ${kIndex}`;
+  readouts.mobileStateSummary.textContent =
+    `k=(${kx.toFixed(3)}, ${ky.toFixed(3)}) | E=${energy.toFixed(4)} | ` +
+    `${config.latticeType} lattice, ${basisLabel} basis. Use Wavefunction to inspect ${boundaryLabel}-point structure.`;
+
+  controls.mobileStatePotential.classList.toggle("is-active", realSpaceMode === "potential");
+  controls.mobileStateWavefunction.classList.toggle("is-active", realSpaceMode === "wavefunction");
+  controls.mobileStateDensity.classList.toggle("is-active", wavefunctionMode === "density");
+  controls.mobileStateReal.classList.toggle("is-active", wavefunctionMode === "real");
+  controls.mobileStatePhase.classList.toggle("is-active", wavefunctionMode === "phase");
+}
+
 function drawRealSpaceView(config, result) {
   if (realSpaceMode === "wavefunction" && selectedBandState) {
     const field = getWavefunctionFieldData(config, result, selectedBandState);
@@ -991,20 +1049,25 @@ function render() {
   drawBandPlot(result, config);
   drawBoundaryZoom(result, config);
   updateSelectedStateSummary(config, result);
+  updateMobileStatePanel(config, result);
   drawRealSpaceView(config, result);
   const gap = autoResult ? autoResult.gap : xPointGap(config);
   const quantities = derivedQuantities(result, gap);
   const convergence = computeGapConvergence(config, gap);
   readouts.gap.textContent = quantities.xGap.toFixed(5);
   readouts.gapDetail.textContent = quantities.xGap.toFixed(5);
+  readouts.mobileGap.textContent = quantities.xGap.toFixed(5);
   readouts.lowestBandMin.textContent = quantities.lowestBandMinimum.toFixed(5);
   readouts.bandwidth.textContent = quantities.firstBandBandwidth.toFixed(5);
   updatePhysicsExplanation(config, quantities, convergence);
   if (autoResult) {
     readouts.autoConvergenceStatus.textContent = `n_max = ${autoResult.nMax} (size = ${basisSizeFromNMax(autoResult.nMax)})`;
     readouts.autoConvergenceDelta.textContent = `Δgap = ${formatDeltaGap(autoResult.delta)}`;
-  readouts.autoConvergenceTolerance.textContent = `tol = ${formatConvergenceValue(AUTO_CONVERGENCE_TOLERANCE)}`;
+    readouts.autoConvergenceTolerance.textContent = `tol = ${formatConvergenceValue(AUTO_CONVERGENCE_TOLERANCE)}`;
     readouts.autoConvergenceResult.textContent = autoResult.converged ? "✓ Converged" : "Not converged yet";
+    readouts.mobileNMax.textContent = String(autoResult.nMax);
+    readouts.mobileDelta.textContent = formatDeltaGap(autoResult.delta);
+    readouts.mobileStatus.textContent = autoResult.converged ? "Converged" : "Solving";
     readouts.convergenceWarning.hidden = autoResult.converged;
     readouts.convergenceWarning.textContent = autoResult.converged
       ? "Converged (Δgap < 1e-3)."
@@ -1013,6 +1076,9 @@ function render() {
     readouts.autoConvergenceDelta.textContent = `Δgap = ${formatDeltaGap(convergence.delta)}`;
     readouts.autoConvergenceTolerance.textContent = `tol = ${formatConvergenceValue(AUTO_CONVERGENCE_TOLERANCE)}`;
     readouts.autoConvergenceResult.textContent = "Manual mode";
+    readouts.mobileNMax.textContent = String(config.nMax);
+    readouts.mobileDelta.textContent = formatDeltaGap(convergence.delta);
+    readouts.mobileStatus.textContent = "Manual";
   }
   readouts.status.textContent = `Updated in ${Math.round(performance.now() - start)} ms`;
 }
@@ -1038,6 +1104,7 @@ function resetDefaults() {
   selectedBandState = null;
   realSpaceMode = "potential";
   wavefunctionMode = "density";
+  setMobileTab("bands");
   wavefunctionCache = new Map();
   lastWavefunctionCacheKey = "";
   autoConvergenceCache = new Map();
@@ -1053,6 +1120,7 @@ function resetInteractiveState() {
   selectedBandState = null;
   realSpaceMode = "potential";
   wavefunctionMode = "density";
+  setMobileTab("bands");
   wavefunctionCache = new Map();
   lastWavefunctionCacheKey = "";
   autoConvergenceCache = new Map();
@@ -1254,11 +1322,13 @@ function handleBandClick(event) {
   selectedBandState = { ...selection, gridSize: 64 };
   wavefunctionCache.delete(`${selection.kIndex}:${selection.bandIndex}:64`);
   realSpaceMode = "wavefunction";
+  setMobileTab("realSpace");
   render();
 }
 
 function showPotentialView() {
   realSpaceMode = "potential";
+  setMobileTab("realSpace");
   render();
 }
 
@@ -1268,6 +1338,7 @@ function showWavefunctionView() {
     return;
   }
   realSpaceMode = "wavefunction";
+  setMobileTab("realSpace");
   render();
 }
 
@@ -1276,6 +1347,14 @@ function setWavefunctionMode(mode) {
   if (realSpaceMode === "wavefunction" && selectedBandState) {
     render();
   }
+}
+
+function closeMobileStatePanel() {
+  selectedBandState = null;
+  realSpaceMode = "potential";
+  hideBandTooltip();
+  setMobileTab("bands");
+  render();
 }
 
 function debounce(fn, delay = 40) {
@@ -1309,6 +1388,15 @@ controls.inspectBoundaryLower.addEventListener("click", () => inspectBoundarySta
 controls.inspectBoundaryUpper.addEventListener("click", () => inspectBoundaryState(1));
 controls.showPotentialView.addEventListener("click", showPotentialView);
 controls.showWavefunctionView.addEventListener("click", showWavefunctionView);
+controls.mobileTabBands.addEventListener("click", () => setMobileTab("bands"));
+controls.mobileTabRealSpace.addEventListener("click", () => setMobileTab("realSpace"));
+controls.mobileTabNotes.addEventListener("click", () => setMobileTab("notes"));
+controls.mobileStateClose.addEventListener("click", closeMobileStatePanel);
+controls.mobileStatePotential.addEventListener("click", showPotentialView);
+controls.mobileStateWavefunction.addEventListener("click", showWavefunctionView);
+controls.mobileStateDensity.addEventListener("click", () => setWavefunctionMode("density"));
+controls.mobileStateReal.addEventListener("click", () => setWavefunctionMode("real"));
+controls.mobileStatePhase.addEventListener("click", () => setWavefunctionMode("phase"));
 controls.waveModeDensity?.addEventListener("click", () => setWavefunctionMode("density"));
 controls.waveModeReal?.addEventListener("click", () => setWavefunctionMode("real"));
 controls.waveModePhase?.addEventListener("click", () => setWavefunctionMode("phase"));
@@ -1316,4 +1404,5 @@ bandCanvas.addEventListener("mousemove", handleBandHover);
 bandCanvas.addEventListener("click", handleBandClick);
 bandCanvas.addEventListener("mouseleave", hideBandTooltip);
 window.addEventListener("resize", debouncedRender);
+setMobileTab("bands");
 render();
