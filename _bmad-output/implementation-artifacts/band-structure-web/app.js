@@ -22,7 +22,13 @@ const controls = {
   showFree: document.querySelector("#showFree"),
   emergenceLambda: document.querySelector("#emergenceLambda"),
   emergencePlay: document.querySelector("#emergencePlay"),
+  presetNearlyFree: document.querySelector("#presetNearlyFree"),
+  presetGapOpening: document.querySelector("#presetGapOpening"),
+  presetStrongLocalization: document.querySelector("#presetStrongLocalization"),
+  graphenePreset: document.querySelector("#graphenePreset"),
   resetDefaults: document.querySelector("#resetDefaults"),
+  inspectBoundaryLower: document.querySelector("#inspectBoundaryLower"),
+  inspectBoundaryUpper: document.querySelector("#inspectBoundaryUpper"),
   showPotentialView: document.querySelector("#showPotentialView"),
   showWavefunctionView: document.querySelector("#showWavefunctionView"),
   waveModeDensity: document.querySelector("#waveModeDensity"),
@@ -78,13 +84,20 @@ const readouts = {
   pathSegmentDescription0: document.querySelector("#pathSegmentDescription0"),
   pathSegmentDescription1: document.querySelector("#pathSegmentDescription1"),
   pathSegmentDescription2: document.querySelector("#pathSegmentDescription2"),
+  selectedStateSummary: document.querySelector("#selectedStateSummary"),
+  boundaryZoomLabel: document.querySelector("#boundaryZoomLabel"),
+  boundaryZoomCaption: document.querySelector("#boundaryZoomCaption"),
+  boundaryStateReadout: document.querySelector("#boundaryStateReadout"),
+  boundaryStateNote: document.querySelector("#boundaryStateNote"),
 };
 
 const bandCanvas = document.querySelector("#bandCanvas");
 const potentialCanvas = document.querySelector("#potentialCanvas");
+const boundaryZoomCanvas = document.querySelector("#boundaryZoomCanvas");
 const bandTooltip = document.querySelector("#bandTooltip");
 const bandContext = bandCanvas.getContext("2d");
 const potentialContext = potentialCanvas.getContext("2d");
+const boundaryZoomContext = boundaryZoomCanvas.getContext("2d");
 
 const defaults = {
   potentialType: "square",
@@ -366,7 +379,9 @@ function updatePhysicsExplanation(config, quantities, convergence) {
     return;
   }
   const showWarning =
-    convergence.relativeDifference > AUTO_CONVERGENCE_TOLERANCE && config.nMax < AUTO_CONVERGENCE_MAX_NMAX;
+    convergence.delta > AUTO_CONVERGENCE_TOLERANCE &&
+    convergence.relativeDifference > CONVERGENCE_RELATIVE_THRESHOLD &&
+    config.nMax < AUTO_CONVERGENCE_MAX_NMAX;
   readouts.convergenceWarning.hidden = !showWarning;
   readouts.convergenceWarning.textContent =
     `Warning: basis convergence may be insufficient. ` +
@@ -381,6 +396,37 @@ function resizeCanvas(canvas) {
   const context = canvas.getContext("2d");
   context.setTransform(ratio, 0, 0, ratio, 0, 0);
   return rect;
+}
+
+function boundaryZoomData(result, config) {
+  const boundaryLabel = zoneBoundaryLabel(config);
+  const boundaryPoint = result.labels.find(([label]) => label === boundaryLabel);
+  if (!boundaryPoint) return null;
+
+  const centerIndex = result.distances.reduce(
+    (best, distance, index) =>
+      Math.abs(distance - boundaryPoint[1]) < Math.abs(result.distances[best] - boundaryPoint[1]) ? index : best,
+    0,
+  );
+  const radius = Math.max(3, Math.min(8, Math.floor(config.pointsPerSegment / 3)));
+  return {
+    boundaryLabel,
+    centerIndex,
+    startIndex: Math.max(0, centerIndex - radius),
+    endIndex: Math.min(result.kPoints.length - 1, centerIndex + radius),
+  };
+}
+
+function inspectBoundaryState(bandIndex) {
+  const config = currentConfig();
+  const result = lastRenderResult;
+  if (!result) return;
+  const zoom = boundaryZoomData(result, config);
+  if (!zoom || bandIndex < 0 || bandIndex > 1) return;
+  selectedBandState = { kIndex: zoom.centerIndex, bandIndex, gridSize: 64 };
+  wavefunctionCache.delete(`${zoom.centerIndex}:${bandIndex}:64`);
+  realSpaceMode = "wavefunction";
+  render();
 }
 
 function heatmapColor(value, minValue, maxValue) {
@@ -597,6 +643,26 @@ function drawBandPlot(result, config) {
     bandContext.stroke();
   }
 
+  if (
+    selectedBandState &&
+    selectedBandState.kIndex < result.distances.length &&
+    selectedBandState.bandIndex < bandsToPlot
+  ) {
+    const selectedX = xScale(result.distances[selectedBandState.kIndex]);
+    const selectedY = yScale(result.eigenvalues[selectedBandState.kIndex][selectedBandState.bandIndex]);
+    bandContext.fillStyle = "rgba(255, 250, 240, 0.96)";
+    bandContext.strokeStyle = "#2d2926";
+    bandContext.lineWidth = 2.4;
+    bandContext.beginPath();
+    bandContext.arc(selectedX, selectedY, 5.5, 0, 2 * Math.PI);
+    bandContext.fill();
+    bandContext.stroke();
+    bandContext.fillStyle = "#d95d39";
+    bandContext.beginPath();
+    bandContext.arc(selectedX, selectedY, 2.5, 0, 2 * Math.PI);
+    bandContext.fill();
+  }
+
   bandContext.fillStyle = "#2d2926";
   bandContext.font = "13px Georgia, serif";
   bandContext.textAlign = "center";
@@ -645,6 +711,124 @@ function drawBandPlot(result, config) {
     domainMin,
     domainMax,
   };
+}
+
+function drawBoundaryZoom(result, config) {
+  const zoom = boundaryZoomData(result, config);
+  const rect = resizeCanvas(boundaryZoomCanvas);
+  const width = rect.width;
+  const height = rect.height;
+  const margin = { left: 42, right: 14, top: 18, bottom: 28 };
+
+  boundaryZoomContext.clearRect(0, 0, width, height);
+  boundaryZoomContext.fillStyle = "#fbf7ee";
+  boundaryZoomContext.fillRect(0, 0, width, height);
+
+  if (!zoom) {
+    readouts.boundaryZoomLabel.textContent = "Zone-boundary zoom";
+    readouts.boundaryZoomCaption.textContent = "Boundary-point view unavailable for this path.";
+    readouts.boundaryStateReadout.textContent = "Exact boundary-point comparison unavailable for this path.";
+    readouts.boundaryStateNote.textContent =
+      "Compare the two lowest boundary states to see how periodic scattering splits them.";
+    controls.inspectBoundaryLower.disabled = true;
+    controls.inspectBoundaryUpper.disabled = true;
+    return;
+  }
+
+  const { boundaryLabel, centerIndex, startIndex, endIndex } = zoom;
+  const indices = Array.from({ length: endIndex - startIndex + 1 }, (_, offset) => startIndex + offset);
+  const distances = indices.map((index) => result.distances[index]);
+  const firstTwoBands = indices.flatMap((index) => result.eigenvalues[index].slice(0, 2));
+  const minDistance = distances[0];
+  const maxDistance = distances[distances.length - 1];
+  const xSpan = Math.max(maxDistance - minDistance, 1e-9);
+  const yMin = Math.min(...firstTwoBands);
+  const yMax = Math.max(...firstTwoBands);
+  const padding = Math.max(0.05, (yMax - yMin) * 0.15);
+  const domainMin = yMin - padding;
+  const domainMax = yMax + padding;
+  const plotWidth = width - margin.left - margin.right;
+  const plotHeight = height - margin.top - margin.bottom;
+  const xScale = (distance) => margin.left + ((distance - minDistance) / xSpan) * plotWidth;
+  const yScale = (energy) => margin.top + ((domainMax - energy) / (domainMax - domainMin)) * plotHeight;
+
+  boundaryZoomContext.strokeStyle = "#ebdfca";
+  boundaryZoomContext.lineWidth = 1;
+  for (let row = 0; row <= 3; row += 1) {
+    const y = margin.top + (row / 3) * plotHeight;
+    boundaryZoomContext.beginPath();
+    boundaryZoomContext.moveTo(margin.left, y);
+    boundaryZoomContext.lineTo(width - margin.right, y);
+    boundaryZoomContext.stroke();
+  }
+
+  const centerX = xScale(result.distances[centerIndex]);
+  boundaryZoomContext.fillStyle = "rgba(217, 93, 57, 0.12)";
+  boundaryZoomContext.fillRect(centerX - 10, margin.top, 20, plotHeight);
+  boundaryZoomContext.strokeStyle = "rgba(217, 93, 57, 0.82)";
+  boundaryZoomContext.lineWidth = 1.8;
+  boundaryZoomContext.beginPath();
+  boundaryZoomContext.moveTo(centerX, margin.top);
+  boundaryZoomContext.lineTo(centerX, margin.top + plotHeight);
+  boundaryZoomContext.stroke();
+
+  const palette = ["#083d77", "#d95d39"];
+  for (let band = 0; band < 2; band += 1) {
+    boundaryZoomContext.strokeStyle = palette[band];
+    boundaryZoomContext.lineWidth = 2;
+    boundaryZoomContext.beginPath();
+    indices.forEach((index, pointOffset) => {
+      const x = xScale(result.distances[index]);
+      const y = yScale(result.eigenvalues[index][band]);
+      if (pointOffset === 0) boundaryZoomContext.moveTo(x, y);
+      else boundaryZoomContext.lineTo(x, y);
+    });
+    boundaryZoomContext.stroke();
+  }
+
+  if (
+    selectedBandState &&
+    selectedBandState.bandIndex < 2 &&
+    selectedBandState.kIndex >= startIndex &&
+    selectedBandState.kIndex <= endIndex
+  ) {
+    const x = xScale(result.distances[selectedBandState.kIndex]);
+    const y = yScale(result.eigenvalues[selectedBandState.kIndex][selectedBandState.bandIndex]);
+    boundaryZoomContext.fillStyle = "rgba(255, 250, 240, 0.96)";
+    boundaryZoomContext.strokeStyle = "#2d2926";
+    boundaryZoomContext.lineWidth = 2;
+    boundaryZoomContext.beginPath();
+    boundaryZoomContext.arc(x, y, 5, 0, 2 * Math.PI);
+    boundaryZoomContext.fill();
+    boundaryZoomContext.stroke();
+    boundaryZoomContext.fillStyle = "#d95d39";
+    boundaryZoomContext.beginPath();
+    boundaryZoomContext.arc(x, y, 2.3, 0, 2 * Math.PI);
+    boundaryZoomContext.fill();
+  }
+
+  boundaryZoomContext.fillStyle = "#083d77";
+  boundaryZoomContext.font = '11px "Trebuchet MS", sans-serif';
+  boundaryZoomContext.textAlign = "left";
+  boundaryZoomContext.fillText("band 1", margin.left, margin.top - 4);
+  boundaryZoomContext.textAlign = "right";
+  boundaryZoomContext.fillStyle = "#d95d39";
+  boundaryZoomContext.fillText("band 2", width - margin.right, margin.top - 4);
+
+  readouts.boundaryZoomLabel.textContent = `${boundaryLabel}-point zoom`;
+  readouts.boundaryZoomCaption.textContent =
+    `Lowest two bands near ${boundaryLabel}. This is the local view where ${config.latticeType === "hexagonal" ? "graphene-like" : "gap-opening"} behavior is easiest to inspect.`;
+  const lowerEnergy = result.eigenvalues[centerIndex][0];
+  const upperEnergy = result.eigenvalues[centerIndex][1];
+  const delta = upperEnergy - lowerEnergy;
+  readouts.boundaryStateReadout.textContent =
+    `Exact ${boundaryLabel} comparison: band 1 = ${lowerEnergy.toFixed(5)}, band 2 = ${upperEnergy.toFixed(5)}, ΔE(${boundaryLabel}) = ${delta.toExponential(3)}.`;
+  readouts.boundaryStateNote.textContent =
+    config.latticeType === "hexagonal" && config.basisType === "graphene"
+      ? `These two lowest states at ${boundaryLabel} show the near-Dirac splitting directly. Compare their periodic wavefunctions to see how the two-site basis mixes sublattice character.`
+      : `These two lowest states at ${boundaryLabel} show the zone-boundary splitting directly. Compare their periodic wavefunctions to see how Bragg reflection separates the standing-wave patterns.`;
+  controls.inspectBoundaryLower.disabled = false;
+  controls.inspectBoundaryUpper.disabled = false;
 }
 
 function drawPotential(config) {
@@ -699,6 +883,35 @@ function formatDensityLegendValue(value) {
   if (Math.abs(value) >= 0.1) return value.toFixed(2);
   if (Math.abs(value) >= 0.01) return value.toFixed(3);
   return value.toExponential(1).replace("e", "×10^");
+}
+
+function selectedSegmentLabel(result, kIndex) {
+  if (!result?.labels?.length || kIndex < 0 || kIndex >= result.distances.length) return "--";
+  const distance = result.distances[kIndex];
+  for (let index = 0; index < result.labels.length - 1; index += 1) {
+    const [startLabel, startDistance] = result.labels[index];
+    const [endLabel, endDistance] = result.labels[index + 1];
+    if (distance >= startDistance - 1e-9 && distance <= endDistance + 1e-9) {
+      return `${startLabel} → ${endLabel}`;
+    }
+  }
+  return result.labels[result.labels.length - 1]?.[0] ?? "--";
+}
+
+function updateSelectedStateSummary(config, result) {
+  if (!selectedBandState || !result) {
+    readouts.selectedStateSummary.textContent = "Click a band to pin a state and inspect its wavefunction.";
+    return;
+  }
+
+  const { kIndex, bandIndex } = selectedBandState;
+  const [kx, ky] = result.kPoints[kIndex];
+  const energy = result.eigenvalues[kIndex][bandIndex];
+  const basisLabel = config.basisType === "graphene" ? "graphene-like two-site" : "single-site";
+  readouts.selectedStateSummary.textContent =
+    `Selected band ${bandIndex + 1} on ${selectedSegmentLabel(result, kIndex)} | ` +
+    `k-index ${kIndex} | k=(${kx.toFixed(3)}, ${ky.toFixed(3)}) | ` +
+    `E=${energy.toFixed(4)} | ${config.latticeType} lattice, ${basisLabel} basis`;
 }
 
 function drawRealSpaceView(config, result) {
@@ -776,6 +989,8 @@ function render() {
     }
   }
   drawBandPlot(result, config);
+  drawBoundaryZoom(result, config);
+  updateSelectedStateSummary(config, result);
   drawRealSpaceView(config, result);
   const gap = autoResult ? autoResult.gap : xPointGap(config);
   const quantities = derivedQuantities(result, gap);
@@ -828,6 +1043,98 @@ function resetDefaults() {
   autoConvergenceCache = new Map();
   hideBandTooltip();
   render();
+}
+
+function resetInteractiveState() {
+  if (emergenceFrame) cancelAnimationFrame(emergenceFrame);
+  emergenceFrame = null;
+  controls.emergencePlay.textContent = "Play";
+  controls.emergenceLambda.value = "1";
+  selectedBandState = null;
+  realSpaceMode = "potential";
+  wavefunctionMode = "density";
+  wavefunctionCache = new Map();
+  lastWavefunctionCacheKey = "";
+  autoConvergenceCache = new Map();
+  hideBandTooltip();
+}
+
+function applyPreset(values) {
+  resetInteractiveState();
+  controls.potentialType.value = values.potentialType;
+  controls.latticeType.value = values.latticeType;
+  controls.basisType.value = values.basisType ?? "single";
+  controls.wellDepth.value = String(values.wellDepth);
+  controls.sigma.value = String(values.sigma ?? defaults.sigma);
+  controls.radius.value = String(values.radius ?? defaults.radius);
+  controls.latticeConstant.value = String(values.latticeConstant ?? defaults.latticeConstant);
+  controls.fillFraction.value = String(values.fillFraction ?? defaults.fillFraction);
+  controls.nMax.value = String(values.nMax);
+  controls.autoConverge.checked = false;
+  controls.pointsPerSegment.value = String(values.pointsPerSegment);
+  controls.bandsToPlot.value = String(values.bandsToPlot);
+  controls.showFree.checked = values.showFree;
+  render();
+}
+
+function applyNearlyFreePreset() {
+  applyPreset({
+    potentialType: "square",
+    latticeType: "square",
+    basisType: "single",
+    wellDepth: 0.15,
+    fillFraction: 0.5,
+    latticeConstant: 1,
+    nMax: 2,
+    pointsPerSegment: 32,
+    bandsToPlot: 6,
+    showFree: true,
+  });
+}
+
+function applyGapOpeningPreset() {
+  applyPreset({
+    potentialType: "square",
+    latticeType: "square",
+    basisType: "single",
+    wellDepth: 2.0,
+    fillFraction: 0.5,
+    latticeConstant: 1,
+    nMax: 3,
+    pointsPerSegment: 36,
+    bandsToPlot: 6,
+    showFree: true,
+  });
+}
+
+function applyStrongLocalizationPreset() {
+  applyPreset({
+    potentialType: "muffin-tin",
+    latticeType: "square",
+    basisType: "single",
+    wellDepth: 4.5,
+    radius: 0.22,
+    latticeConstant: 1,
+    nMax: 3,
+    pointsPerSegment: 32,
+    bandsToPlot: 6,
+    showFree: false,
+  });
+}
+
+function applyGrapheneNearDiracPreset() {
+  applyPreset({
+    potentialType: "gaussian",
+    latticeType: "hexagonal",
+    basisType: "graphene",
+    wellDepth: 0.4,
+    sigma: 0.1,
+    latticeConstant: 1,
+    nMax: 3,
+    pointsPerSegment: 48,
+    bandsToPlot: 6,
+    showFree: false,
+  });
 }
 
 function toggleEmergencePlayback() {
@@ -993,7 +1300,13 @@ for (const control of Object.values(controls)) {
   }
 }
 controls.emergencePlay.addEventListener("click", toggleEmergencePlayback);
+controls.presetNearlyFree.addEventListener("click", applyNearlyFreePreset);
+controls.presetGapOpening.addEventListener("click", applyGapOpeningPreset);
+controls.presetStrongLocalization.addEventListener("click", applyStrongLocalizationPreset);
+controls.graphenePreset.addEventListener("click", applyGrapheneNearDiracPreset);
 controls.resetDefaults.addEventListener("click", resetDefaults);
+controls.inspectBoundaryLower.addEventListener("click", () => inspectBoundaryState(0));
+controls.inspectBoundaryUpper.addEventListener("click", () => inspectBoundaryState(1));
 controls.showPotentialView.addEventListener("click", showPotentialView);
 controls.showWavefunctionView.addEventListener("click", showWavefunctionView);
 controls.waveModeDensity?.addEventListener("click", () => setWavefunctionMode("density"));

@@ -118,6 +118,21 @@
             <input id="showFree" type="checkbox" checked />
             <span>Overlay E = k² bands</span>
           </label>
+          <div class="preset-box">
+            <strong>Physics presets</strong>
+            <div class="preset-actions">
+              <button id="presetNearlyFree" type="button">Nearly Free</button>
+              <button id="presetGapOpening" type="button">Gap Opening</button>
+              <button id="presetStrongLocalization" type="button">Strong Localization</button>
+              <button id="graphenePreset" type="button">Graphene near-Dirac</button>
+            </div>
+            <div class="preset-notes">
+              <p><strong>Nearly Free:</strong> weak periodic potential, bands stay close to free-electron parabolas.</p>
+              <p><strong>Gap Opening:</strong> stronger periodic potential, clear band splitting at the zone boundary.</p>
+              <p><strong>Strong Localization:</strong> deeper wells, flatter bands and more localized real-space density.</p>
+              <p><strong>Graphene near-Dirac:</strong> two-site hexagonal basis, lowest bands nearly touch near K.</p>
+            </div>
+          </div>
           <div class="emergence-box">
             <div class="emergence-head">
               <span>Emergence of band structure</span>
@@ -156,6 +171,28 @@
             <div class="path-segment">
               <strong id="pathSegmentLabel2">M → Γ</strong>
               <span id="pathSegmentDescription2">Return to the zone center where the gap closes.</span>
+            </div>
+          </div>
+          <p id="selectedStateSummary" class="selected-state-summary">
+            Click a band to pin a state and inspect its wavefunction.
+          </p>
+          <div class="boundary-zoom-block">
+            <div class="boundary-zoom-head">
+              <strong id="boundaryZoomLabel">X-point zoom</strong>
+              <span id="boundaryZoomCaption">Lowest two bands near the zone boundary.</span>
+            </div>
+            <canvas id="boundaryZoomCanvas" aria-label="Zone-boundary zoom canvas"></canvas>
+            <div class="boundary-state-tools">
+              <p id="boundaryStateReadout" class="boundary-state-readout">
+                Exact boundary-point comparison unavailable for this path.
+              </p>
+              <p id="boundaryStateNote" class="boundary-state-note">
+                Compare the two lowest boundary states to see how periodic scattering splits them.
+              </p>
+              <div class="boundary-state-actions">
+                <button id="inspectBoundaryLower" type="button">Inspect lower state</button>
+                <button id="inspectBoundaryUpper" type="button">Inspect upper state</button>
+              </div>
             </div>
           </div>
         </article>

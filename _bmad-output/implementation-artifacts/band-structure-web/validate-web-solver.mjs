@@ -280,6 +280,23 @@ function testWavefunctionSquareSymmetry() {
   assert(maxAsymmetry < 5e-4, "square-lattice density respects x↔y symmetry");
 }
 
+function testNearDiracPresetPhysics() {
+  const config = {
+    type: "gaussian",
+    latticeType: "hexagonal",
+    basisType: "graphene",
+    latticeConstant: 1,
+    wellDepth: 0.4,
+    fillFraction: 0.5,
+    sigma: 0.1,
+    radius: 0.22,
+    nMax: 3,
+    pointsPerSegment: 48,
+  };
+  const kGap = xPointGap(config);
+  assert(kGap < 1e-4, "near-Dirac preset keeps a very small K-point gap");
+}
+
 testBasisSize();
 testHighSymmetryPoints();
 testHexagonalHighSymmetryPoints();
@@ -300,4 +317,5 @@ testWavefunctionUniformAtFreeLimit();
 testWavefunctionLocalizationAtFinitePotential();
 testWavefunctionSquareSymmetry();
 testWavefunctionFieldComponents();
+testNearDiracPresetPhysics();
 console.log("Web solver validation passed.");

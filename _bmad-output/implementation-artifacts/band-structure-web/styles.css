@@ -118,6 +118,43 @@ h2 {
   font-size: 0.92rem;
 }
 
+.preset-box {
+  display: grid;
+  gap: 10px;
+}
+
+.preset-box strong {
+  color: var(--blue);
+  font: 700 0.8rem/1.2 "Trebuchet MS", sans-serif;
+  letter-spacing: 0.04em;
+}
+
+.preset-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.preset-actions button {
+  padding: 9px 12px;
+  font-size: 0.8rem;
+}
+
+.preset-notes {
+  display: grid;
+  gap: 6px;
+}
+
+.preset-notes p {
+  margin: 0;
+  color: var(--muted);
+  font: 0.76rem/1.35 "Trebuchet MS", sans-serif;
+}
+
+.preset-notes strong {
+  color: var(--blue);
+}
+
 .controls {
   display: grid;
   grid-template-columns: 1.15fr 0.8fr 1.45fr 0.75fr;
@@ -298,6 +335,73 @@ button:hover {
   color: var(--muted);
   font-size: 0.8rem;
   line-height: 1.35;
+}
+
+.selected-state-summary {
+  margin: 12px 4px 0;
+  color: var(--muted);
+  font: 0.84rem/1.4 "Trebuchet MS", sans-serif;
+}
+
+.boundary-zoom-block {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 12px 14px 14px;
+  border: 1px solid rgba(45, 41, 38, 0.1);
+  border-radius: 18px;
+  background: rgba(255, 250, 240, 0.72);
+}
+
+.boundary-zoom-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.boundary-zoom-head strong {
+  color: var(--blue);
+  font: 700 0.82rem/1.2 "Trebuchet MS", sans-serif;
+  letter-spacing: 0.04em;
+}
+
+.boundary-zoom-head span {
+  color: var(--muted);
+  font: 0.78rem/1.25 "Trebuchet MS", sans-serif;
+}
+
+.boundary-state-tools {
+  display: grid;
+  gap: 10px;
+}
+
+.boundary-state-readout {
+  margin: 0;
+  color: var(--muted);
+  font: 0.8rem/1.35 "Trebuchet MS", sans-serif;
+}
+
+.boundary-state-note {
+  margin: -2px 0 0;
+  color: var(--blue);
+  font: 0.78rem/1.35 "Trebuchet MS", sans-serif;
+}
+
+.boundary-state-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.boundary-state-actions button {
+  padding: 8px 11px;
+  font-size: 0.78rem;
+}
+
+#boundaryZoomCanvas {
+  height: 180px;
 }
 
 .realspace-tools {
