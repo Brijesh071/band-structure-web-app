@@ -16,12 +16,47 @@
             Tune a periodic potential and watch the high-symmetry band path
             update beside the matching real-space well.
           </p>
+          <p class="hero-note">
+            Explore how periodic potentials create bands, boundary gaps,
+            localization, and graphene-like K-point physics.
+          </p>
         </div>
         <div class="metric-card">
           <span id="gapLabel">X-point gap</span>
           <strong id="gapReadout">0.00000</strong>
-          <p>Zone-boundary splitting from the periodic potential.</p>
+          <p id="gapCaption">Zone-boundary splitting from the periodic potential.</p>
         </div>
+      </section>
+
+      <section class="guide-strip panel" aria-label="Guided exploration">
+        <div class="guide-strip-head">
+          <div>
+            <p class="guide-eyebrow">Guided exploration</p>
+            <h2>Start here</h2>
+          </div>
+          <p id="guideStatus" class="guide-status">Step 1 of 4: choose a preset.</p>
+        </div>
+        <div class="guide-steps">
+          <article id="guideStepPreset" class="guide-step is-active">
+            <strong>1. Choose a preset</strong>
+            <p>Start from a clean physics regime instead of moving many sliders at once.</p>
+          </article>
+          <article id="guideStepInspect" class="guide-step">
+            <strong>2. Inspect the band plot</strong>
+            <p>Hover to read k and energy, then look for where the gap is opening.</p>
+          </article>
+          <article id="guideStepSelect" class="guide-step">
+            <strong>3. Click a state</strong>
+            <p>Pin one band so the real-space panel and state summary stay synchronized.</p>
+          </article>
+          <article id="guideStepCompare" class="guide-step">
+            <strong>4. Compare X/K states</strong>
+            <p>Use the exact boundary-state tools to compare the two lowest split states.</p>
+          </article>
+        </div>
+        <p id="guideExplanation" class="guide-explanation">
+          Use a preset first. The fastest path is: preset → hover → click a band → compare the exact X/K states.
+        </p>
       </section>
 
       <section class="controls panel" aria-label="Simulation controls">
@@ -86,7 +121,7 @@
         <div class="control-group">
           <h2>Numerics</h2>
           <label title="Plane-wave cutoff. Low values are faster but less converged.">
-            <span>Basis n_max <b data-readout="nMax">2</b></span>
+            <span>Plane-wave cutoff n_max <b data-readout="nMax">2</b></span>
             <input id="nMax" type="range" min="0" max="4" step="1" value="2" />
             <small>Controls Hamiltonian size.</small>
           </label>
@@ -106,7 +141,7 @@
             <small id="kPathHint">Sampling along Γ → X → M → Γ.</small>
           </label>
           <label title="Number of lowest bands drawn in the plot.">
-            <span>Bands shown <b data-readout="bandsToPlot">8</b></span>
+            <span>Visible bands <b data-readout="bandsToPlot">8</b></span>
             <input id="bandsToPlot" type="range" min="1" max="16" step="1" value="8" />
             <small>Visual display only.</small>
           </label>
@@ -116,21 +151,27 @@
           <h2>View</h2>
           <label class="toggle" title="Show folded free-electron parabolas for comparison.">
             <input id="showFree" type="checkbox" checked />
-            <span>Overlay E = k² bands</span>
+            <span>Show free-electron reference</span>
           </label>
           <div class="preset-box">
             <strong>Physics presets</strong>
             <div class="preset-actions">
-              <button id="presetNearlyFree" type="button">Nearly Free</button>
-              <button id="presetGapOpening" type="button">Gap Opening</button>
-              <button id="presetStrongLocalization" type="button">Strong Localization</button>
-              <button id="graphenePreset" type="button">Graphene near-Dirac</button>
-            </div>
-            <div class="preset-notes">
-              <p><strong>Nearly Free:</strong> weak periodic potential, bands stay close to free-electron parabolas.</p>
-              <p><strong>Gap Opening:</strong> stronger periodic potential, clear band splitting at the zone boundary.</p>
-              <p><strong>Strong Localization:</strong> deeper wells, flatter bands and more localized real-space density.</p>
-              <p><strong>Graphene near-Dirac:</strong> two-site hexagonal basis, lowest bands nearly touch near K.</p>
+              <button id="presetNearlyFree" type="button" class="preset-card">
+                <span class="preset-card-title">Nearly Free</span>
+                <span class="preset-card-note">Weak periodic potential, bands stay close to free-electron parabolas.</span>
+              </button>
+              <button id="presetGapOpening" type="button" class="preset-card">
+                <span class="preset-card-title">Gap Opening</span>
+                <span class="preset-card-note">Stronger periodic potential, clear band splitting at the zone boundary.</span>
+              </button>
+              <button id="presetStrongLocalization" type="button" class="preset-card">
+                <span class="preset-card-title">Strong Localization</span>
+                <span class="preset-card-note">Deeper wells, flatter bands, and more localized real-space density.</span>
+              </button>
+              <button id="graphenePreset" type="button" class="preset-card">
+                <span class="preset-card-title">Graphene near-Dirac</span>
+                <span class="preset-card-note">Two-site hexagonal basis with lowest bands nearly touching near K.</span>
+              </button>
             </div>
           </div>
           <div class="emergence-box">
@@ -180,6 +221,7 @@
             <h2>Band structure</h2>
             <p id="hoverReadout">Hover over a band to inspect k and energy.</p>
           </div>
+          <p class="plot-caption">High-symmetry k-path</p>
           <div class="canvas-wrap">
             <canvas id="bandCanvas" aria-label="Band structure canvas"></canvas>
             <div id="bandTooltip" class="band-tooltip" hidden></div>
@@ -197,6 +239,36 @@
               <strong id="pathSegmentLabel2">M → Γ</strong>
               <span id="pathSegmentDescription2">Return to the zone center where the gap closes.</span>
             </div>
+          </div>
+          <div class="inspection-card" aria-live="polite">
+            <div class="inspection-card-head">
+              <div>
+                <span class="inspection-eyebrow">Selected state</span>
+                <strong id="inspectionTitle">No state selected</strong>
+              </div>
+              <span id="inspectionMode" class="inspection-mode">Potential view</span>
+            </div>
+            <dl class="inspection-grid">
+              <div>
+                <dt>Segment</dt>
+                <dd id="inspectionSegment">--</dd>
+              </div>
+              <div>
+                <dt>k-point</dt>
+                <dd id="inspectionKPoint">--</dd>
+              </div>
+              <div>
+                <dt>Energy</dt>
+                <dd id="inspectionEnergy">--</dd>
+              </div>
+              <div>
+                <dt>Mode</dt>
+                <dd id="inspectionView">Potential</dd>
+              </div>
+            </dl>
+            <p id="inspectionPrompt" class="inspection-prompt">
+              Click a band to pin a state, then inspect its periodic wavefunction or compare the exact X/K states.
+            </p>
           </div>
           <p id="selectedStateSummary" class="selected-state-summary">
             Click a band to pin a state and inspect its wavefunction.
@@ -223,7 +295,7 @@
         </article>
         <article id="realSpacePanel" class="panel chart-card mobile-tab-panel">
           <div class="card-heading">
-            <h2>Real-space potential</h2>
+            <h2 id="realSpaceTitle">Real-space potential</h2>
             <div class="realspace-tools">
               <div class="segmented-toggle" role="group" aria-label="Real-space view mode">
                 <button id="showPotentialView" type="button" class="mini-toggle is-active">Show Potential</button>
@@ -245,13 +317,27 @@
       <section id="notesPanel" class="explain panel mobile-tab-panel">
         <div class="explain-head">
           <div>
-            <h2>Physics notes</h2>
-            <p id="dynamicExplanation">Adjust V0 to see the periodic potential open a zone-boundary gap.</p>
-            <p id="dynamicExplanationDetail" class="detail-note">
-              At X, counter-propagating Bloch components satisfy the Bragg condition and split apart in energy.
-            </p>
+            <h2>What am I seeing?</h2>
+            <p class="detail-note">Use this panel as the teaching guide for the current regime, state, and next action.</p>
           </div>
           <p id="convergenceWarning" class="warning" hidden>Warning: basis size may be insufficient for convergence.</p>
+        </div>
+        <div id="teachingStateBanner" class="teaching-state-banner">
+          No band is pinned yet. Start with a preset, then click a band to connect the band plot, real-space panel, and exact X/K comparison.
+        </div>
+        <div class="teaching-grid">
+          <article class="teaching-card">
+            <span class="teaching-label">Current phenomenon</span>
+            <p id="dynamicExplanation">Adjust V0 to see the periodic potential open a zone-boundary gap.</p>
+          </article>
+          <article class="teaching-card">
+            <span class="teaching-label">Why it happens</span>
+            <p id="dynamicExplanationDetail">At X, counter-propagating Bloch components satisfy the Bragg condition and split apart in energy.</p>
+          </article>
+          <article class="teaching-card">
+            <span class="teaching-label">Try next</span>
+            <p id="dynamicTryNext">Start with a preset, then click a band and compare the exact X/K states.</p>
+          </article>
         </div>
         <dl class="quantity-grid">
           <div>
@@ -286,7 +372,7 @@
           <button id="mobileStateClose" type="button" class="mobile-state-close">Close</button>
         </div>
         <p id="mobileStateSummary" class="mobile-state-summary">
-          Tap a band to inspect its energy, wavefunction, and boundary-state context.
+          Tap a band to inspect its energy, wavefunction, and exact X/K comparison context.
         </p>
         <div class="mobile-state-actions">
           <button id="mobileStatePotential" type="button">Potential</button>
@@ -298,6 +384,14 @@
           <button id="mobileStatePhase" type="button">arg(u<sub>k</sub>)</button>
         </div>
       </section>
+
+      <footer class="app-footer">
+        <p>
+          Browser-based matrix-mechanics sandbox for periodic quantum systems.
+          Use presets, inspect a band, and compare exact X/K states to connect
+          band structure with real-space behavior.
+        </p>
+      </footer>
     </main>
     <script type="module" src="./app.js"></script>
   </body>

@@ -43,6 +43,10 @@ const controls = {
   waveModeDensity: document.querySelector("#waveModeDensity"),
   waveModeReal: document.querySelector("#waveModeReal"),
   waveModePhase: document.querySelector("#waveModePhase"),
+  guideStepPreset: document.querySelector("#guideStepPreset"),
+  guideStepInspect: document.querySelector("#guideStepInspect"),
+  guideStepSelect: document.querySelector("#guideStepSelect"),
+  guideStepCompare: document.querySelector("#guideStepCompare"),
 };
 
 const potentialPanels = {
@@ -69,6 +73,7 @@ const readouts = {
   bandsToPlot: document.querySelector("[data-readout='bandsToPlot']"),
   lambda: document.querySelector("[data-readout='lambda']"),
   gap: document.querySelector("#gapReadout"),
+  gapCaption: document.querySelector("#gapCaption"),
   matrix: document.querySelector("#matrixReadout"),
   status: document.querySelector("#statusReadout"),
   hover: document.querySelector("#hoverReadout"),
@@ -77,12 +82,15 @@ const readouts = {
   bandwidth: document.querySelector("#bandwidthReadout"),
   explanation: document.querySelector("#dynamicExplanation"),
   explanationDetail: document.querySelector("#dynamicExplanationDetail"),
+  explanationTryNext: document.querySelector("#dynamicTryNext"),
+  teachingStateBanner: document.querySelector("#teachingStateBanner"),
   convergenceWarning: document.querySelector("#convergenceWarning"),
   autoConvergenceStatus: document.querySelector("#autoConvergenceStatus"),
   autoConvergenceDelta: document.querySelector("#autoConvergenceDelta"),
   autoConvergenceTolerance: document.querySelector("#autoConvergenceTolerance"),
   autoConvergenceResult: document.querySelector("#autoConvergenceResult"),
   potentialCaption: document.querySelector("#potentialCaption"),
+  realSpaceTitle: document.querySelector("#realSpaceTitle"),
   selectionLabel: document.querySelector("#realSpaceSelectionLabel"),
   gapLabel: document.querySelector("#gapLabel"),
   gapDetailLabel: document.querySelector("#gapDetailLabel"),
@@ -94,6 +102,13 @@ const readouts = {
   pathSegmentDescription1: document.querySelector("#pathSegmentDescription1"),
   pathSegmentDescription2: document.querySelector("#pathSegmentDescription2"),
   selectedStateSummary: document.querySelector("#selectedStateSummary"),
+  inspectionTitle: document.querySelector("#inspectionTitle"),
+  inspectionMode: document.querySelector("#inspectionMode"),
+  inspectionSegment: document.querySelector("#inspectionSegment"),
+  inspectionKPoint: document.querySelector("#inspectionKPoint"),
+  inspectionEnergy: document.querySelector("#inspectionEnergy"),
+  inspectionView: document.querySelector("#inspectionView"),
+  inspectionPrompt: document.querySelector("#inspectionPrompt"),
   boundaryZoomLabel: document.querySelector("#boundaryZoomLabel"),
   boundaryZoomCaption: document.querySelector("#boundaryZoomCaption"),
   boundaryStateReadout: document.querySelector("#boundaryStateReadout"),
@@ -105,15 +120,21 @@ const readouts = {
   mobileStatePanel: document.querySelector("#mobileStatePanel"),
   mobileStateTitle: document.querySelector("#mobileStateTitle"),
   mobileStateSummary: document.querySelector("#mobileStateSummary"),
+  guideStatus: document.querySelector("#guideStatus"),
+  guideExplanation: document.querySelector("#guideExplanation"),
 };
 
 const bandCanvas = document.querySelector("#bandCanvas");
 const potentialCanvas = document.querySelector("#potentialCanvas");
 const boundaryZoomCanvas = document.querySelector("#boundaryZoomCanvas");
+const bandPanel = document.querySelector("#bandPanel");
+const realSpacePanel = document.querySelector("#realSpacePanel");
+const notesPanel = document.querySelector("#notesPanel");
+const inspectionCard = document.querySelector(".inspection-card");
 const mobilePanels = {
-  bands: document.querySelector("#bandPanel"),
-  realSpace: document.querySelector("#realSpacePanel"),
-  notes: document.querySelector("#notesPanel"),
+  bands: bandPanel,
+  realSpace: realSpacePanel,
+  notes: notesPanel,
 };
 const bandTooltip = document.querySelector("#bandTooltip");
 const bandContext = bandCanvas.getContext("2d");
@@ -149,6 +170,7 @@ let mobileActiveTab = "bands";
 let wavefunctionCache = new Map();
 let lastWavefunctionCacheKey = "";
 let autoConvergenceCache = new Map();
+let activePreset = null;
 
 function currentConfig() {
   const lambda = Number(controls.emergenceLambda.value);
@@ -242,6 +264,10 @@ function updateReadouts(config) {
   const boundaryLabel = zoneBoundaryLabel(config);
   readouts.gapLabel.textContent = `${boundaryLabel}-point gap`;
   readouts.gapDetailLabel.textContent = `${boundaryLabel}-point gap`;
+  readouts.gapCaption.textContent =
+    config.latticeType === "hexagonal" && config.basisType === "graphene"
+      ? `${boundaryLabel}-point splitting in the graphene-like two-site basis.`
+      : `${boundaryLabel}-point gap from Bragg splitting in the periodic potential.`;
   readouts.potentialCaption.textContent =
     config.type === "gaussian"
       ? `${config.basisType === "graphene" ? "Two Gaussian wells" : "Centered Gaussian well"} in one ${config.latticeType} unit-cell window.`
@@ -314,6 +340,29 @@ function basisSizeFromNMax(nMax) {
   return (2 * nMax + 1) ** 2;
 }
 
+const PRESET_GUIDES = {
+  nearlyFree: {
+    label: "Nearly Free",
+    explanation:
+      "Look for bands that stay close to the free-electron overlay. Then raise the potential strength to see where a real boundary gap begins.",
+  },
+  gapOpening: {
+    label: "Gap Opening",
+    explanation:
+      "Watch the X-point zoom and compare the exact boundary states. This preset is the cleanest regime for seeing Bragg splitting open a gap.",
+  },
+  strongLocalization: {
+    label: "Strong Localization",
+    explanation:
+      "After selecting a low band, inspect the real-space panel. Deeper wells should localize density more strongly and flatten the lowest bands.",
+  },
+  grapheneNearDirac: {
+    label: "Graphene near-Dirac",
+    explanation:
+      "Focus on the K-point zoom and the two exact K states. This preset is tuned to make the graphene-like near-touching pair easy to inspect.",
+  },
+};
+
 function autoConvergenceKey(config) {
   return JSON.stringify({
     type: config.type,
@@ -370,19 +419,29 @@ function updatePhysicsExplanation(config, quantities, convergence) {
       readouts.explanation.textContent = "With the graphene-like two-site basis turned off by λ = 0, the spectrum is still folded free-electron motion.";
       readouts.explanationDetail.textContent =
         "As λ grows, the A/B basis phase begins to matter at K and can drive the lowest bands toward a near-touching cone.";
+      readouts.explanationTryNext.textContent =
+        "Play the emergence slider or use Graphene near-Dirac, then inspect the two exact K states to see the lowest pair start to split.";
     } else if (quantities.xGap < 0.05) {
       readouts.explanation.textContent = "The two-site hexagonal basis is producing a small K-point gap, close to graphene-like cone formation.";
       readouts.explanationDetail.textContent =
         "In the ideal honeycomb limit the K-point gap closes exactly; here the finite potential and truncated basis leave a small residual splitting.";
+      readouts.explanationTryNext.textContent =
+        selectedBandState
+          ? "Keep the selected state pinned, then compare the lower and upper exact K states and switch between |u_k|², Re(u_k), and arg(u_k)."
+          : "Click one of the two lowest K-region bands or use the exact K-state buttons to compare the near-Dirac pair directly.";
     } else {
       readouts.explanation.textContent = "The graphene-like two-site basis now mixes A/B sublattice phases and reshapes the K-point bands.";
       readouts.explanationDetail.textContent =
         "Reducing V0 or narrowing the wells usually pushes the two lowest bands closer together at K and makes the cone more graphene-like.";
+      readouts.explanationTryNext.textContent =
+        "Lower the well depth or narrow the Gaussian width, then watch the K-point zoom to see whether the two lowest bands move closer together.";
     }
   } else if (config.lambda < 0.02) {
     readouts.explanation.textContent = "λ = 0 gives the free-electron limit: folded E = k² bands with no zone-boundary gap.";
     readouts.explanationDetail.textContent =
       "At the zone boundary there is no periodic scattering yet, so the crossing states remain degenerate.";
+    readouts.explanationTryNext.textContent =
+      "Raise λ or choose Gap Opening so the periodic potential can start mixing the boundary states.";
   } else if (config.wellDepth > 0.05 && quantities.xGap > 1e-4) {
     readouts.explanation.textContent =
       config.type === "gaussian"
@@ -392,10 +451,16 @@ function updatePhysicsExplanation(config, quantities, convergence) {
           : "Band gap opens due to Bragg reflection at the Brillouin-zone boundary.";
     readouts.explanationDetail.textContent =
       `At ${zoneBoundaryLabel(config)}, states that differ by one reciprocal-lattice vector mix strongly, so one combination shifts up and the other shifts down.`;
+    readouts.explanationTryNext.textContent =
+      selectedBandState
+        ? `Use the exact ${zoneBoundaryLabel(config)} comparison and inspect the selected wavefunction to see how the split standing-wave pattern changes across the gap.`
+        : `Use Gap Opening or click one of the two lowest ${zoneBoundaryLabel(config)} states to compare the split pair directly.`;
   } else {
     readouts.explanation.textContent = "At V0 = 0, bands follow folded free-electron E = k² curves.";
     readouts.explanationDetail.textContent =
       "The periodic potential is too weak to split the boundary crossing appreciably, so the spectrum still looks nearly free-electron.";
+    readouts.explanationTryNext.textContent =
+      "Start with Nearly Free, then increase V0 slightly and watch for the first visible opening at the boundary.";
   }
   if (controls.autoConverge.checked) {
     return;
@@ -720,7 +785,7 @@ function drawBandPlot(result, config) {
   bandContext.translate(18, margin.top + plotHeight / 2);
   bandContext.rotate(-Math.PI / 2);
   bandContext.textAlign = "center";
-  bandContext.fillText("Energy (dimensionless)", 0, 0);
+  bandContext.fillText("Energy (scaled units)", 0, 0);
   bandContext.restore();
 
   lastBandPlot = {
@@ -921,9 +986,26 @@ function selectedSegmentLabel(result, kIndex) {
   return result.labels[result.labels.length - 1]?.[0] ?? "--";
 }
 
+function describeInspectionMode(config) {
+  if (realSpaceMode === "potential") return "Potential";
+  if (wavefunctionMode === "real") return "Re(u_k)";
+  if (wavefunctionMode === "phase") return "arg(u_k)";
+  return config.basisType === "graphene" ? "|u_k|²" : "|u_k|²";
+}
+
 function updateSelectedStateSummary(config, result) {
   if (!selectedBandState || !result) {
     readouts.selectedStateSummary.textContent = "Click a band to pin a state and inspect its wavefunction.";
+    readouts.inspectionTitle.textContent = "No state selected";
+    readouts.inspectionMode.textContent = "Potential view";
+    readouts.inspectionSegment.textContent = "--";
+    readouts.inspectionKPoint.textContent = "--";
+    readouts.inspectionEnergy.textContent = "--";
+    readouts.inspectionView.textContent = "Potential";
+    readouts.inspectionPrompt.textContent =
+      "Click a band to pin a state, then inspect its periodic wavefunction or compare the exact X/K states.";
+    readouts.teachingStateBanner.textContent =
+      "No band is pinned yet. Start with a preset, then click a band to connect the band plot, real-space panel, and exact X/K comparison.";
     return;
   }
 
@@ -931,10 +1013,77 @@ function updateSelectedStateSummary(config, result) {
   const [kx, ky] = result.kPoints[kIndex];
   const energy = result.eigenvalues[kIndex][bandIndex];
   const basisLabel = config.basisType === "graphene" ? "graphene-like two-site" : "single-site";
+  const segment = selectedSegmentLabel(result, kIndex);
+  const modeLabel = describeInspectionMode(config);
   readouts.selectedStateSummary.textContent =
-    `Selected band ${bandIndex + 1} on ${selectedSegmentLabel(result, kIndex)} | ` +
+    `Selected band ${bandIndex + 1} on ${segment} | ` +
     `k-index ${kIndex} | k=(${kx.toFixed(3)}, ${ky.toFixed(3)}) | ` +
     `E=${energy.toFixed(4)} | ${config.latticeType} lattice, ${basisLabel} basis`;
+  readouts.inspectionTitle.textContent = `Band ${bandIndex + 1} at k-index ${kIndex}`;
+  readouts.inspectionMode.textContent = realSpaceMode === "wavefunction" ? "Wavefunction view" : "Potential view";
+  readouts.inspectionSegment.textContent = segment;
+  readouts.inspectionKPoint.textContent = `(${kx.toFixed(3)}, ${ky.toFixed(3)})`;
+  readouts.inspectionEnergy.textContent = energy.toFixed(4);
+  readouts.inspectionView.textContent = modeLabel;
+  readouts.inspectionPrompt.textContent =
+    realSpaceMode === "wavefunction"
+      ? `Inspect ${modeLabel} for this state, then compare the lower and upper exact ${zoneBoundaryLabel(config)} states to see how the split pair differs.`
+      : `Switch to Show Wavefunction to inspect ${modeLabel} for this selected state.`;
+  readouts.teachingStateBanner.textContent =
+    `Pinned state: band ${bandIndex + 1} on ${segment} at k = (${kx.toFixed(3)}, ${ky.toFixed(3)}), E = ${energy.toFixed(4)}. ` +
+    `${realSpaceMode === "wavefunction" ? `You are viewing ${modeLabel}.` : "Switch to Wavefunction to connect this band to its periodic real-space structure."}`;
+}
+
+function updateSelectionEmphasis() {
+  const hasSelection = Boolean(selectedBandState);
+  inspectionCard.classList.toggle("is-selected", hasSelection);
+  inspectionCard.classList.toggle("is-awaiting", !hasSelection);
+  bandPanel.classList.toggle("has-selection", hasSelection);
+  realSpacePanel.classList.toggle("has-selection", hasSelection);
+  notesPanel.classList.toggle("has-selection", hasSelection);
+}
+
+function updatePresetCards() {
+  controls.presetNearlyFree.classList.toggle("is-active", activePreset === "nearlyFree");
+  controls.presetGapOpening.classList.toggle("is-active", activePreset === "gapOpening");
+  controls.presetStrongLocalization.classList.toggle("is-active", activePreset === "strongLocalization");
+  controls.graphenePreset.classList.toggle("is-active", activePreset === "grapheneNearDirac");
+}
+
+function updateGuideStrip(config) {
+  const boundaryLabel = zoneBoundaryLabel(config);
+  let step = 1;
+  let status = "Step 1 of 4: choose a preset.";
+  let explanation = "Use a preset first. The fastest path is: preset → hover → click a band → compare the exact X/K states.";
+
+  if (activePreset) {
+    step = 2;
+    const preset = PRESET_GUIDES[activePreset];
+    status = `Step 2 of 4: inspect the ${preset.label} band plot.`;
+    explanation = preset.explanation;
+  }
+
+  if (selectedBandState && lastRenderResult) {
+    step = 3;
+    const [kx, ky] = lastRenderResult.kPoints[selectedBandState.kIndex];
+    status = `Step 3 of 4: band ${selectedBandState.bandIndex + 1} is pinned at k = (${kx.toFixed(3)}, ${ky.toFixed(3)}).`;
+    explanation =
+      `Use ${realSpaceMode === "wavefunction" ? "the wavefunction panel" : "Show Wavefunction"} to inspect the periodic part u_k(x,y), then compare the exact ${boundaryLabel} states below the plot.`;
+  }
+
+  if (selectedBandState && realSpaceMode === "wavefunction") {
+    step = 4;
+    status = `Step 4 of 4: compare the exact ${boundaryLabel} states with the current wavefunction view.`;
+    explanation =
+      `Now compare the lower and upper exact ${boundaryLabel} states. Use |u_k|², Re(u_k), and arg(u_k) to see how the periodic part changes across the split pair.`;
+  }
+
+  readouts.guideStatus.textContent = status;
+  readouts.guideExplanation.textContent = explanation;
+  controls.guideStepPreset.classList.toggle("is-active", step === 1);
+  controls.guideStepInspect.classList.toggle("is-active", step === 2);
+  controls.guideStepSelect.classList.toggle("is-active", step === 3);
+  controls.guideStepCompare.classList.toggle("is-active", step === 4);
 }
 
 function setMobileTab(tab) {
@@ -977,7 +1126,9 @@ function drawRealSpaceView(config, result) {
     const field = getWavefunctionFieldData(config, result, selectedBandState);
     const bandNumber = selectedBandState.bandIndex + 1;
     const pointIndex = selectedBandState.kIndex;
+    const [kx, ky] = result.kPoints[selectedBandState.kIndex];
     if (wavefunctionMode === "real") {
+      readouts.realSpaceTitle.textContent = `Re(u_k) for band ${bandNumber} at k = (${kx.toFixed(3)}, ${ky.toFixed(3)})`;
       drawGridHeatmap(normalizeSymmetricGrid(field.real), `one ${config.latticeType} unit-cell window`, "Real part Re(u_k)", {
         colorFn: divergingRealColor,
         colorbarLabel: "Real part Re(u_k)",
@@ -989,6 +1140,7 @@ function drawRealSpaceView(config, result) {
       readouts.selectionLabel.textContent = `Selected band: ${bandNumber}. Re(u_k) at k-point index ${pointIndex}.`;
       readouts.potentialCaption.textContent = "Periodic-part real component with the Bloch phase removed.";
     } else if (wavefunctionMode === "phase") {
+      readouts.realSpaceTitle.textContent = `arg(u_k) for band ${bandNumber} at k = (${kx.toFixed(3)}, ${ky.toFixed(3)})`;
       drawGridHeatmap(field.phase, `one ${config.latticeType} unit-cell window`, "Phase arg(u_k)", {
         colorFn: cyclicPhaseColor,
         colorbarLabel: "Phase arg(u_k)",
@@ -1000,6 +1152,7 @@ function drawRealSpaceView(config, result) {
       readouts.selectionLabel.textContent = `Selected band: ${bandNumber}. arg(u_k) at k-point index ${pointIndex}.`;
       readouts.potentialCaption.textContent = "Periodic-part phase, which highlights lattice symmetry without plane-wave stripes.";
     } else {
+      readouts.realSpaceTitle.textContent = `|u_k|² for band ${bandNumber} at k = (${kx.toFixed(3)}, ${ky.toFixed(3)})`;
       const densityMin = Math.min(...field.density.flat());
       const densityMax = Math.max(...field.density.flat());
       drawGridHeatmap(field.density, `one ${config.latticeType} unit-cell window`, "Probability density |u_k|²", {
@@ -1014,6 +1167,7 @@ function drawRealSpaceView(config, result) {
       readouts.potentialCaption.textContent = "Periodic-part probability density with the Bloch phase removed.";
     }
   } else {
+    readouts.realSpaceTitle.textContent = "Real-space potential";
     drawPotential(config);
     readouts.selectionLabel.textContent = selectedBandState
       ? `Selected band: ${selectedBandState.bandIndex + 1}. k-point index ${selectedBandState.kIndex}.`
@@ -1037,6 +1191,8 @@ function render() {
     lastWavefunctionCacheKey = cacheKey;
   }
   updateReadouts(config);
+  updatePresetCards();
+  updateGuideStrip(config);
   const result = computeBandStructure(config);
   lastRenderResult = result;
   if (selectedBandState) {
@@ -1049,8 +1205,10 @@ function render() {
   drawBandPlot(result, config);
   drawBoundaryZoom(result, config);
   updateSelectedStateSummary(config, result);
+  updateSelectionEmphasis();
   updateMobileStatePanel(config, result);
   drawRealSpaceView(config, result);
+  updateGuideStrip(config);
   const gap = autoResult ? autoResult.gap : xPointGap(config);
   const quantities = derivedQuantities(result, gap);
   const convergence = computeGapConvergence(config, gap);
@@ -1108,6 +1266,7 @@ function resetDefaults() {
   wavefunctionCache = new Map();
   lastWavefunctionCacheKey = "";
   autoConvergenceCache = new Map();
+  activePreset = null;
   hideBandTooltip();
   render();
 }
@@ -1127,8 +1286,9 @@ function resetInteractiveState() {
   hideBandTooltip();
 }
 
-function applyPreset(values) {
+function applyPreset(name, values) {
   resetInteractiveState();
+  activePreset = name;
   controls.potentialType.value = values.potentialType;
   controls.latticeType.value = values.latticeType;
   controls.basisType.value = values.basisType ?? "single";
@@ -1146,7 +1306,7 @@ function applyPreset(values) {
 }
 
 function applyNearlyFreePreset() {
-  applyPreset({
+  applyPreset("nearlyFree", {
     potentialType: "square",
     latticeType: "square",
     basisType: "single",
@@ -1161,7 +1321,7 @@ function applyNearlyFreePreset() {
 }
 
 function applyGapOpeningPreset() {
-  applyPreset({
+  applyPreset("gapOpening", {
     potentialType: "square",
     latticeType: "square",
     basisType: "single",
@@ -1176,7 +1336,7 @@ function applyGapOpeningPreset() {
 }
 
 function applyStrongLocalizationPreset() {
-  applyPreset({
+  applyPreset("strongLocalization", {
     potentialType: "muffin-tin",
     latticeType: "square",
     basisType: "single",
@@ -1191,7 +1351,7 @@ function applyStrongLocalizationPreset() {
 }
 
 function applyGrapheneNearDiracPreset() {
-  applyPreset({
+  applyPreset("grapheneNearDirac", {
     potentialType: "gaussian",
     latticeType: "hexagonal",
     basisType: "graphene",
@@ -1369,6 +1529,14 @@ const debouncedRender = debounce(render);
 for (const control of Object.values(controls)) {
   if (control !== controls.resetDefaults && control !== controls.emergencePlay) {
     control.addEventListener("input", () => {
+      if (
+        control !== controls.presetNearlyFree &&
+        control !== controls.presetGapOpening &&
+        control !== controls.presetStrongLocalization &&
+        control !== controls.graphenePreset
+      ) {
+        activePreset = null;
+      }
       if (emergenceFrame && control !== controls.emergenceLambda) {
         cancelAnimationFrame(emergenceFrame);
         emergenceFrame = null;
