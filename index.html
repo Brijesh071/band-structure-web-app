@@ -60,7 +60,7 @@
       </section>
 
       <section class="controls panel" aria-label="Simulation controls">
-        <div class="control-group">
+        <div class="control-group controls-potential">
           <h2>Potential</h2>
           <label title="Choose the periodic potential used in the Hamiltonian.">
             <span>Potential type <b data-readout="potentialType">square</b></span>
@@ -93,7 +93,7 @@
           </label>
         </div>
 
-        <div class="control-group">
+        <div class="control-group controls-lattice">
           <h2>Lattice</h2>
           <label title="Choose the Bravais lattice used to build reciprocal vectors and the k-path.">
             <span>Lattice type <b data-readout="latticeType">square</b></span>
@@ -118,7 +118,7 @@
           </label>
         </div>
 
-        <div class="control-group">
+        <div class="control-group controls-numerics">
           <h2>Numerics</h2>
           <label title="Plane-wave cutoff. Low values are faster but less converged.">
             <span>Plane-wave cutoff n_max <b data-readout="nMax">2</b></span>
@@ -147,7 +147,7 @@
           </label>
         </div>
 
-        <div class="control-group actions">
+        <div class="control-group actions controls-view">
           <h2>View</h2>
           <label class="toggle" title="Show folded free-electron parabolas for comparison.">
             <input id="showFree" type="checkbox" checked />
@@ -220,6 +220,9 @@
           <div class="card-heading">
             <h2>Band structure</h2>
             <p id="hoverReadout">Hover over a band to inspect k and energy.</p>
+          </div>
+          <div id="bandInsight" class="band-insight" aria-live="polite">
+            Nearly free-electron bands.
           </div>
           <p class="plot-caption">High-symmetry k-path</p>
           <div class="canvas-wrap">
@@ -295,7 +298,12 @@
         </article>
         <article id="realSpacePanel" class="panel chart-card mobile-tab-panel">
           <div class="card-heading">
-            <h2 id="realSpaceTitle">Real-space potential</h2>
+            <div class="panel-heading-copy">
+              <span class="analysis-eyebrow">State inspector</span>
+              <h2 id="realSpaceTitle">Real-space potential</h2>
+              <p id="realSpaceSubtitle" class="panel-subtitle">Potential sampled in one unit-cell window.</p>
+              <p id="realSpaceStateBadge" class="realspace-state-badge">No band pinned yet.</p>
+            </div>
             <div class="realspace-tools">
               <div class="segmented-toggle" role="group" aria-label="Real-space view mode">
                 <button id="showPotentialView" type="button" class="mini-toggle is-active">Show Potential</button>
@@ -311,6 +319,11 @@
           </div>
           <canvas id="potentialCanvas" aria-label="Real-space potential canvas"></canvas>
           <p id="realSpaceSelectionLabel" class="selection-label">Click a band to inspect the periodic part u<sub>k</sub>(x,y).</p>
+          <div id="phaseLegend" class="phase-legend" hidden aria-label="Phase color legend">
+            <span>-π</span>
+            <div class="phase-legend-bar"></div>
+            <span>π</span>
+          </div>
         </article>
       </section>
 

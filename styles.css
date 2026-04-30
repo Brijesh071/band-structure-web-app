@@ -8,6 +8,9 @@
   --gold: #e9d8a6;
   --line: #d8cbb5;
   --shadow: 0 22px 70px rgba(60, 43, 20, 0.16);
+  --selection-accent: #083d77;
+  --selection-accent-soft: rgba(8, 61, 119, 0.24);
+  --selection-accent-glow: rgba(8, 61, 119, 0.14);
 }
 
 * {
@@ -32,15 +35,15 @@ body {
 .shell {
   width: min(1460px, calc(100% - 32px));
   margin: 0 auto;
-  padding: 24px 0 40px;
+  padding: 16px 0 42px;
 }
 
 .hero {
   display: grid;
   grid-template-columns: 1fr 280px;
-  gap: 22px;
+  gap: 18px;
   align-items: end;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
 
 .eyebrow {
@@ -59,8 +62,8 @@ p {
 
 h1 {
   max-width: 900px;
-  margin-bottom: 10px;
-  font-size: clamp(2.2rem, 4.4vw, 4.75rem);
+  margin-bottom: 8px;
+  font-size: clamp(1.95rem, 3.8vw, 3.95rem);
   line-height: 0.95;
   letter-spacing: -0.06em;
 }
@@ -73,15 +76,15 @@ h2 {
 .lede {
   max-width: 760px;
   color: var(--muted);
-  font-size: 1.04rem;
-  line-height: 1.48;
+  font-size: 0.96rem;
+  line-height: 1.38;
 }
 
 .hero-note {
   max-width: 700px;
-  margin: 12px 0 0;
-  color: var(--blue);
-  font: 700 0.86rem/1.45 "Trebuchet MS", sans-serif;
+  margin: 8px 0 0;
+  color: rgba(8, 61, 119, 0.88);
+  font: 700 0.8rem/1.35 "Trebuchet MS", sans-serif;
 }
 
 .panel,
@@ -94,7 +97,7 @@ h2 {
 }
 
 .metric-card {
-  padding: 20px 22px;
+  padding: 18px 20px;
 }
 
 .metric-card span {
@@ -107,9 +110,9 @@ h2 {
 
 .metric-card strong {
   display: block;
-  margin: 10px 0 6px;
+  margin: 8px 0 5px;
   color: var(--blue);
-  font-size: 2.15rem;
+  font-size: 2rem;
 }
 
 .metric-card p,
@@ -129,9 +132,9 @@ h2 {
 
 .guide-strip {
   display: grid;
-  gap: 14px;
-  padding: 18px 20px;
-  margin-bottom: 18px;
+  gap: 10px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
 }
 
 .guide-strip-head {
@@ -142,9 +145,9 @@ h2 {
 }
 
 .guide-eyebrow {
-  margin: 0 0 6px;
+  margin: 0 0 4px;
   color: var(--rust);
-  font: 700 0.75rem/1.2 "Trebuchet MS", sans-serif;
+  font: 700 0.72rem/1.2 "Trebuchet MS", sans-serif;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
@@ -152,7 +155,7 @@ h2 {
 .guide-status {
   margin: 0;
   color: var(--blue);
-  font: 700 0.9rem/1.35 "Trebuchet MS", sans-serif;
+  font: 700 0.84rem/1.3 "Trebuchet MS", sans-serif;
   text-align: right;
 }
 
@@ -163,7 +166,7 @@ h2 {
 }
 
 .guide-step {
-  padding: 12px 14px;
+  padding: 10px 12px;
   border: 1px solid rgba(78, 61, 38, 0.12);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.52);
@@ -177,15 +180,15 @@ h2 {
 
 .guide-step strong {
   display: block;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
   color: var(--blue);
-  font: 700 0.82rem/1.25 "Trebuchet MS", sans-serif;
+  font: 700 0.79rem/1.22 "Trebuchet MS", sans-serif;
 }
 
 .guide-step p {
   margin: 0;
   color: var(--muted);
-  font: 0.78rem/1.4 "Trebuchet MS", sans-serif;
+  font: 0.74rem/1.34 "Trebuchet MS", sans-serif;
 }
 
 .guide-step.is-active {
@@ -199,7 +202,7 @@ h2 {
 .guide-explanation {
   margin: 0;
   color: var(--muted);
-  font-size: 0.86rem;
+  font-size: 0.8rem;
 }
 
 .detail-note {
@@ -267,10 +270,10 @@ h2 {
 .preset-card {
   display: grid;
   gap: 5px;
-  min-height: 96px;
+  min-height: 82px;
   align-content: start;
   text-align: left;
-  padding: 12px 13px 13px;
+  padding: 10px 12px 11px;
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.84);
 }
@@ -283,28 +286,50 @@ h2 {
 
 .preset-card-title {
   color: var(--blue);
-  font: 700 0.84rem/1.22 "Trebuchet MS", sans-serif;
+  font: 700 0.81rem/1.2 "Trebuchet MS", sans-serif;
 }
 
 .preset-card-note {
   color: var(--muted);
-  font: 0.72rem/1.36 "Trebuchet MS", sans-serif;
+  font: 0.69rem/1.3 "Trebuchet MS", sans-serif;
   white-space: normal;
 }
 
 .controls {
   display: grid;
-  grid-template-columns: 1.05fr 0.78fr 1.3fr 0.82fr;
-  gap: 14px;
-  padding: 18px;
+  grid-template-columns: minmax(0, 1.02fr) minmax(0, 1.05fr) minmax(300px, 0.94fr);
+  grid-template-areas:
+    "potential numerics view"
+    "lattice numerics view";
+  gap: 12px;
+  padding: 14px 16px;
   margin-bottom: 18px;
+  background: rgba(255, 252, 244, 0.74);
+  box-shadow: 0 16px 42px rgba(60, 43, 20, 0.11);
+  align-items: start;
 }
 
 .control-group {
   display: grid;
   align-content: start;
-  gap: 11px;
+  gap: 8px;
   min-width: 0;
+}
+
+.controls-potential {
+  grid-area: potential;
+}
+
+.controls-lattice {
+  grid-area: lattice;
+}
+
+.controls-numerics {
+  grid-area: numerics;
+}
+
+.controls-view {
+  grid-area: view;
 }
 
 .control-group h2 {
@@ -314,9 +339,9 @@ h2 {
 
 label {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   color: var(--muted);
-  font-size: 0.88rem;
+  font-size: 0.84rem;
 }
 
 label span {
@@ -327,8 +352,8 @@ label span {
 
 small {
   color: var(--muted);
-  font-size: 0.73rem;
-  line-height: 1.25;
+  font-size: 0.69rem;
+  line-height: 1.2;
 }
 
 b {
@@ -338,6 +363,11 @@ b {
 input[type="range"] {
   width: 100%;
   accent-color: var(--rust);
+  transition: filter 140ms ease;
+}
+
+input[type="range"]:hover {
+  filter: saturate(1.08);
 }
 
 select {
@@ -388,7 +418,9 @@ button {
   padding: 10px 14px;
   transition:
     transform 140ms ease,
-    box-shadow 140ms ease;
+    box-shadow 140ms ease,
+    background 140ms ease,
+    border-color 140ms ease;
 }
 
 button:hover {
@@ -399,7 +431,7 @@ button:hover {
 .emergence-box {
   display: grid;
   gap: 8px;
-  padding: 12px;
+  padding: 10px 12px;
   border: 1px solid rgba(8, 61, 119, 0.14);
   border-radius: 20px;
   background: rgba(255, 250, 240, 0.72);
@@ -420,8 +452,9 @@ button:hover {
 
 .views {
   display: grid;
-  grid-template-columns: minmax(0, 1.48fr) minmax(320px, 0.72fr);
-  gap: 18px;
+  grid-template-columns: minmax(0, 1.6fr) minmax(320px, 0.68fr);
+  gap: 22px;
+  align-items: start;
 }
 
 .mobile-tabs {
@@ -451,11 +484,56 @@ button:hover {
   box-shadow: 0 18px 42px rgba(8, 61, 119, 0.1);
 }
 
+#realSpacePanel.has-selection {
+  border-color: var(--selection-accent-soft);
+  box-shadow:
+    0 20px 46px var(--selection-accent-glow),
+    0 0 0 1px var(--selection-accent-soft);
+}
+
 .card-heading {
   display: flex;
   justify-content: space-between;
   gap: 20px;
   align-items: baseline;
+}
+
+.panel-heading-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.analysis-eyebrow {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--rust);
+  font: 700 0.72rem/1.2 "Trebuchet MS", sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.panel-subtitle {
+  margin: 0;
+  color: var(--muted);
+  font: 0.78rem/1.4 "Trebuchet MS", sans-serif;
+}
+
+.realspace-state-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin: 2px 0 0;
+  padding: 5px 10px;
+  border: 1px solid var(--selection-accent-soft);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--selection-accent);
+  font: 700 0.72rem/1.2 "Trebuchet MS", sans-serif;
+}
+
+#realSpacePanel.has-selection .realspace-state-badge {
+  background: var(--selection-accent-soft);
+  border-color: var(--selection-accent-soft);
 }
 
 #hoverReadout {
@@ -466,6 +544,16 @@ button:hover {
   text-align: right;
   white-space: normal;
   overflow-wrap: anywhere;
+}
+
+.band-insight {
+  margin: 0 0 12px;
+  padding: 9px 12px;
+  border: 1px solid rgba(8, 61, 119, 0.12);
+  border-radius: 16px;
+  background: rgba(232, 241, 252, 0.72);
+  color: var(--blue);
+  font: 700 0.8rem/1.35 "Trebuchet MS", sans-serif;
 }
 
 .path-guide {
@@ -611,7 +699,7 @@ button:hover {
 .boundary-zoom-block {
   display: grid;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 16px;
   padding: 11px 13px 13px;
   border: 1px solid rgba(45, 41, 38, 0.1);
   border-radius: 18px;
@@ -672,7 +760,7 @@ button:hover {
 .realspace-tools {
   display: grid;
   justify-items: end;
-  gap: 6px;
+  gap: 4px;
 }
 
 .segmented-toggle {
@@ -699,10 +787,27 @@ button:hover {
   line-height: 1.35;
 }
 
+.phase-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 4px 0;
+  color: var(--muted);
+  font: 0.74rem/1.2 "Trebuchet MS", sans-serif;
+}
+
+.phase-legend-bar {
+  width: 120px;
+  height: 10px;
+  border: 1px solid rgba(45, 41, 38, 0.1);
+  border-radius: 999px;
+  background: linear-gradient(90deg, #5c53c7 0%, #2f84da 18%, #2caf83 36%, #d7cb43 54%, #e68a32 72%, #d25a73 100%);
+}
+
 canvas {
   display: block;
   width: 100%;
-  height: 510px;
+  height: 570px;
   border-radius: 20px;
   border: 1px solid var(--line);
   background: var(--paper);
@@ -725,15 +830,31 @@ canvas {
   padding: 8px 10px;
   max-width: none;
   white-space: nowrap;
+  opacity: 0;
+  transform: translateY(4px);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
+}
+
+.band-tooltip.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+#realSpacePanel {
+  align-self: start;
 }
 
 #potentialCanvas {
-  height: 430px;
+  height: 340px;
 }
 
 .explain {
-  margin-top: 18px;
+  margin-top: 24px;
   padding: 20px;
+  background: rgba(255, 252, 244, 0.78);
+  box-shadow: 0 16px 40px rgba(60, 43, 20, 0.11);
 }
 
 .explain-head {
@@ -793,13 +914,17 @@ dd {
 
 @media (max-width: 980px) {
   .shell {
+    display: flex;
+    flex-direction: column;
     width: min(100%, calc(100% - 20px));
     padding: 20px 0 30px;
+    gap: 0;
   }
 
   .guide-strip {
     padding: 16px 18px;
     margin-bottom: 16px;
+    order: 7;
   }
 
   .guide-strip-head {
@@ -817,6 +942,7 @@ dd {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
     margin: 0 0 14px;
+    order: 3;
   }
 
   .mobile-numerics div {
@@ -846,6 +972,7 @@ dd {
     gap: 10px;
     flex-wrap: wrap;
     margin: 0 0 16px;
+    order: 2;
   }
 
   .mobile-tabs button {
@@ -874,12 +1001,22 @@ dd {
   .hero {
     gap: 16px;
     margin-bottom: 16px;
+    order: 1;
   }
 
   .controls {
     gap: 14px;
     padding: 16px;
     margin-bottom: 16px;
+    order: 6;
+  }
+
+  .views {
+    order: 4;
+  }
+
+  #notesPanel {
+    order: 5;
   }
 
   .control-group {
@@ -915,9 +1052,16 @@ dd {
     grid-template-columns: 1fr;
   }
 
-  canvas,
+  canvas {
+    height: 360px;
+  }
+
+  #bandCanvas {
+    height: 420px;
+  }
+
   #potentialCanvas {
-    height: 380px;
+    height: 320px;
   }
 
   .mobile-tab-panel.is-mobile-hidden {
@@ -937,6 +1081,7 @@ dd {
     background: rgba(255, 252, 244, 0.96);
     box-shadow: 0 18px 48px rgba(60, 43, 20, 0.18);
     backdrop-filter: blur(14px);
+    order: 8;
   }
 
   .mobile-state-head {
@@ -988,6 +1133,10 @@ dd {
     color: #fffaf0;
     border-color: rgba(8, 61, 119, 0.6);
   }
+
+  .app-footer {
+    order: 9;
+  }
 }
 
 @media (max-width: 720px) {
@@ -1030,10 +1179,16 @@ dd {
     font-size: 0.78rem;
   }
 
-  canvas,
-  #potentialCanvas,
-  #boundaryZoomCanvas {
-    height: 320px;
+  canvas {
+    height: 300px;
+  }
+
+  #bandCanvas {
+    height: 360px;
+  }
+
+  #potentialCanvas {
+    height: 280px;
   }
 
   #boundaryZoomCanvas {

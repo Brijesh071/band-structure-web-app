@@ -89,8 +89,11 @@ const readouts = {
   autoConvergenceDelta: document.querySelector("#autoConvergenceDelta"),
   autoConvergenceTolerance: document.querySelector("#autoConvergenceTolerance"),
   autoConvergenceResult: document.querySelector("#autoConvergenceResult"),
+  bandInsight: document.querySelector("#bandInsight"),
   potentialCaption: document.querySelector("#potentialCaption"),
   realSpaceTitle: document.querySelector("#realSpaceTitle"),
+  realSpaceSubtitle: document.querySelector("#realSpaceSubtitle"),
+  realSpaceStateBadge: document.querySelector("#realSpaceStateBadge"),
   selectionLabel: document.querySelector("#realSpaceSelectionLabel"),
   gapLabel: document.querySelector("#gapLabel"),
   gapDetailLabel: document.querySelector("#gapDetailLabel"),
@@ -131,6 +134,7 @@ const bandPanel = document.querySelector("#bandPanel");
 const realSpacePanel = document.querySelector("#realSpacePanel");
 const notesPanel = document.querySelector("#notesPanel");
 const inspectionCard = document.querySelector(".inspection-card");
+const phaseLegend = document.querySelector("#phaseLegend");
 const mobilePanels = {
   bands: bandPanel,
   realSpace: realSpacePanel,
@@ -160,10 +164,14 @@ const defaults = {
 const CONVERGENCE_RELATIVE_THRESHOLD = 0.05;
 const AUTO_CONVERGENCE_TOLERANCE = 1e-3;
 const AUTO_CONVERGENCE_MAX_NMAX = 10;
+const BAND_PALETTE = ["#083d77", "#d95d39", "#04724d", "#7a306c", "#0f7c8a", "#a35d00", "#5d5f71", "#0b6e4f"];
 let lastBandPlot = null;
 let emergenceFrame = null;
 let lastRenderResult = null;
+let lastRenderedConfig = null;
+let lastQuantities = null;
 let selectedBandState = null;
+let hoverBandState = null;
 let realSpaceMode = "potential";
 let wavefunctionMode = "density";
 let mobileActiveTab = "bands";
@@ -171,6 +179,24 @@ let wavefunctionCache = new Map();
 let lastWavefunctionCacheKey = "";
 let autoConvergenceCache = new Map();
 let activePreset = null;
+
+function rgbaFromHex(hex, alpha) {
+  const normalized = hex.replace("#", "");
+  const value = normalized.length === 3
+    ? normalized
+        .split("")
+        .map((char) => `${char}${char}`)
+        .join("")
+    : normalized;
+  const red = Number.parseInt(value.slice(0, 2), 16);
+  const green = Number.parseInt(value.slice(2, 4), 16);
+  const blue = Number.parseInt(value.slice(4, 6), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
+
+function bandColor(index) {
+  return BAND_PALETTE[index % BAND_PALETTE.length];
+}
 
 function currentConfig() {
   const lambda = Number(controls.emergenceLambda.value);
@@ -717,10 +743,20 @@ function drawBandPlot(result, config) {
     bandContext.setLineDash([]);
   }
 
-  const palette = ["#083d77", "#d95d39", "#04724d", "#7a306c", "#0f7c8a", "#a35d00", "#5d5f71", "#0b6e4f"];
   for (let band = 0; band < bandsToPlot; band += 1) {
-    bandContext.strokeStyle = palette[band % palette.length];
-    bandContext.lineWidth = 1.8;
+    const color = bandColor(band);
+    const isSelectedBand = selectedBandState && selectedBandState.bandIndex === band;
+    const isHoveredBand = hoverBandState && hoverBandState.bandIndex === band;
+    const dimOthers = Boolean(selectedBandState) && !isSelectedBand;
+
+    bandContext.save();
+    bandContext.strokeStyle = color;
+    bandContext.globalAlpha = dimOthers ? 0.25 : 1;
+    bandContext.lineWidth = isSelectedBand ? 3.2 : isHoveredBand ? 2.4 : 1.9;
+    if (isSelectedBand || isHoveredBand) {
+      bandContext.shadowBlur = isSelectedBand ? 14 : 10;
+      bandContext.shadowColor = rgbaFromHex(color, isSelectedBand ? 0.22 : 0.16);
+    }
     bandContext.beginPath();
     result.eigenvalues.forEach((row, index) => {
       const x = xScale(result.distances[index]);
@@ -729,6 +765,7 @@ function drawBandPlot(result, config) {
       else bandContext.lineTo(x, y);
     });
     bandContext.stroke();
+    bandContext.restore();
   }
 
   if (
@@ -749,6 +786,32 @@ function drawBandPlot(result, config) {
     bandContext.beginPath();
     bandContext.arc(selectedX, selectedY, 2.5, 0, 2 * Math.PI);
     bandContext.fill();
+  }
+
+  if (hoverBandState && hoverBandState.kIndex < result.distances.length && hoverBandState.bandIndex < bandsToPlot) {
+    const hoverX = xScale(result.distances[hoverBandState.kIndex]);
+    const hoverY = yScale(result.eigenvalues[hoverBandState.kIndex][hoverBandState.bandIndex]);
+    const hoverColor = bandColor(hoverBandState.bandIndex);
+
+    bandContext.save();
+    bandContext.strokeStyle = rgbaFromHex(hoverColor, 0.55);
+    bandContext.lineWidth = 1.6;
+    bandContext.setLineDash([6, 5]);
+    bandContext.beginPath();
+    bandContext.moveTo(hoverX, margin.top);
+    bandContext.lineTo(hoverX, margin.top + plotHeight);
+    bandContext.stroke();
+    bandContext.setLineDash([]);
+    bandContext.fillStyle = "#fffaf0";
+    bandContext.strokeStyle = hoverColor;
+    bandContext.lineWidth = 2.2;
+    bandContext.shadowBlur = 14;
+    bandContext.shadowColor = rgbaFromHex(hoverColor, 0.18);
+    bandContext.beginPath();
+    bandContext.arc(hoverX, hoverY, 5, 0, 2 * Math.PI);
+    bandContext.fill();
+    bandContext.stroke();
+    bandContext.restore();
   }
 
   bandContext.fillStyle = "#2d2926";
@@ -993,6 +1056,47 @@ function describeInspectionMode(config) {
   return config.basisType === "graphene" ? "|u_k|²" : "|u_k|²";
 }
 
+function activeBandState() {
+  return hoverBandState || selectedBandState;
+}
+
+function updateBandInsight(config, result, quantities) {
+  const boundaryLabel = zoneBoundaryLabel(config);
+  const zoom = result ? boundaryZoomData(result, config) : null;
+  const state = activeBandState();
+  const isNearBoundary = Boolean(state && zoom && Math.abs(state.kIndex - zoom.centerIndex) <= 1);
+
+  let insight = "Nearly free-electron bands.";
+  if (config.latticeType === "hexagonal" && config.basisType === "graphene" && quantities?.xGap < 0.05) {
+    insight = "Linear dispersion emerging near K.";
+  } else if (isNearBoundary && quantities && quantities.xGap > 1e-4) {
+    insight = `Bragg reflection at ${boundaryLabel} → band gap opens.`;
+  } else if (config.wellDepth >= 3) {
+    insight = "Strong localization → flatter low-energy bands.";
+  } else if (config.wellDepth <= 0.3 || config.lambda < 0.15) {
+    insight = "Nearly free-electron bands.";
+  } else {
+    insight = "Periodic scattering reshapes the folded free-electron bands.";
+  }
+
+  readouts.bandInsight.textContent = insight;
+}
+
+function updateSelectionAccent() {
+  const color = selectedBandState ? bandColor(selectedBandState.bandIndex) : bandColor(0);
+  const soft = rgbaFromHex(color, 0.24);
+  const glow = rgbaFromHex(color, 0.16);
+  realSpacePanel.style.setProperty("--selection-accent", color);
+  realSpacePanel.style.setProperty("--selection-accent-soft", soft);
+  realSpacePanel.style.setProperty("--selection-accent-glow", glow);
+}
+
+function refreshBandPlot() {
+  if (!lastRenderResult || !lastRenderedConfig) return;
+  drawBandPlot(lastRenderResult, lastRenderedConfig);
+  updateBandInsight(lastRenderedConfig, lastRenderResult, lastQuantities);
+}
+
 function updateSelectedStateSummary(config, result) {
   if (!selectedBandState || !result) {
     readouts.selectedStateSummary.textContent = "Click a band to pin a state and inspect its wavefunction.";
@@ -1041,6 +1145,7 @@ function updateSelectionEmphasis() {
   bandPanel.classList.toggle("has-selection", hasSelection);
   realSpacePanel.classList.toggle("has-selection", hasSelection);
   notesPanel.classList.toggle("has-selection", hasSelection);
+  updateSelectionAccent();
 }
 
 function updatePresetCards() {
@@ -1127,8 +1232,11 @@ function drawRealSpaceView(config, result) {
     const bandNumber = selectedBandState.bandIndex + 1;
     const pointIndex = selectedBandState.kIndex;
     const [kx, ky] = result.kPoints[selectedBandState.kIndex];
+    readouts.realSpaceStateBadge.textContent = `Band ${bandNumber} pinned at k = (${kx.toFixed(3)}, ${ky.toFixed(3)})`;
+    readouts.realSpaceTitle.textContent = "Wavefunction at selected state";
     if (wavefunctionMode === "real") {
-      readouts.realSpaceTitle.textContent = `Re(u_k) for band ${bandNumber} at k = (${kx.toFixed(3)}, ${ky.toFixed(3)})`;
+      readouts.realSpaceSubtitle.innerHTML =
+        `u<sub>k</sub>(x,y): periodic part (Bloch phase removed). Re(u<sub>k</sub>) for band ${bandNumber} at k = (${kx.toFixed(3)}, ${ky.toFixed(3)}).`;
       drawGridHeatmap(normalizeSymmetricGrid(field.real), `one ${config.latticeType} unit-cell window`, "Real part Re(u_k)", {
         colorFn: divergingRealColor,
         colorbarLabel: "Real part Re(u_k)",
@@ -1140,7 +1248,8 @@ function drawRealSpaceView(config, result) {
       readouts.selectionLabel.textContent = `Selected band: ${bandNumber}. Re(u_k) at k-point index ${pointIndex}.`;
       readouts.potentialCaption.textContent = "Periodic-part real component with the Bloch phase removed.";
     } else if (wavefunctionMode === "phase") {
-      readouts.realSpaceTitle.textContent = `arg(u_k) for band ${bandNumber} at k = (${kx.toFixed(3)}, ${ky.toFixed(3)})`;
+      readouts.realSpaceSubtitle.innerHTML =
+        `u<sub>k</sub>(x,y): periodic part (Bloch phase removed). arg(u<sub>k</sub>) for band ${bandNumber} at k = (${kx.toFixed(3)}, ${ky.toFixed(3)}).`;
       drawGridHeatmap(field.phase, `one ${config.latticeType} unit-cell window`, "Phase arg(u_k)", {
         colorFn: cyclicPhaseColor,
         colorbarLabel: "Phase arg(u_k)",
@@ -1152,7 +1261,8 @@ function drawRealSpaceView(config, result) {
       readouts.selectionLabel.textContent = `Selected band: ${bandNumber}. arg(u_k) at k-point index ${pointIndex}.`;
       readouts.potentialCaption.textContent = "Periodic-part phase, which highlights lattice symmetry without plane-wave stripes.";
     } else {
-      readouts.realSpaceTitle.textContent = `|u_k|² for band ${bandNumber} at k = (${kx.toFixed(3)}, ${ky.toFixed(3)})`;
+      readouts.realSpaceSubtitle.innerHTML =
+        `u<sub>k</sub>(x,y): periodic part (Bloch phase removed). |u<sub>k</sub>|² for band ${bandNumber} at k = (${kx.toFixed(3)}, ${ky.toFixed(3)}).`;
       const densityMin = Math.min(...field.density.flat());
       const densityMax = Math.max(...field.density.flat());
       drawGridHeatmap(field.density, `one ${config.latticeType} unit-cell window`, "Probability density |u_k|²", {
@@ -1168,6 +1278,10 @@ function drawRealSpaceView(config, result) {
     }
   } else {
     readouts.realSpaceTitle.textContent = "Real-space potential";
+    readouts.realSpaceSubtitle.textContent = "Potential sampled in one unit-cell window.";
+    readouts.realSpaceStateBadge.textContent = selectedBandState
+      ? `Band ${selectedBandState.bandIndex + 1} pinned. Switch to Wavefunction to inspect u_k(x,y).`
+      : "No band pinned yet.";
     drawPotential(config);
     readouts.selectionLabel.textContent = selectedBandState
       ? `Selected band: ${selectedBandState.bandIndex + 1}. k-point index ${selectedBandState.kIndex}.`
@@ -1178,6 +1292,7 @@ function drawRealSpaceView(config, result) {
   controls.waveModeDensity?.classList.toggle("is-active", wavefunctionMode === "density");
   controls.waveModeReal?.classList.toggle("is-active", wavefunctionMode === "real");
   controls.waveModePhase?.classList.toggle("is-active", wavefunctionMode === "phase");
+  phaseLegend.hidden = !(realSpaceMode === "wavefunction" && wavefunctionMode === "phase");
 }
 
 function render() {
@@ -1185,6 +1300,11 @@ function render() {
   const baseConfig = currentConfig();
   const autoResult = controls.autoConverge.checked ? findAutoConvergedBasis(baseConfig) : null;
   const config = autoResult ? { ...baseConfig, nMax: autoResult.nMax } : baseConfig;
+  lastRenderedConfig = { ...config };
+  hoverBandState = null;
+  bandTooltip.hidden = true;
+  bandTooltip.classList.remove("is-visible");
+  readouts.hover.textContent = "Hover over a band to inspect k and energy.";
   const cacheKey = wavefunctionCacheKey(config);
   if (cacheKey !== lastWavefunctionCacheKey) {
     wavefunctionCache = new Map();
@@ -1211,12 +1331,14 @@ function render() {
   updateGuideStrip(config);
   const gap = autoResult ? autoResult.gap : xPointGap(config);
   const quantities = derivedQuantities(result, gap);
+  lastQuantities = quantities;
   const convergence = computeGapConvergence(config, gap);
   readouts.gap.textContent = quantities.xGap.toFixed(5);
   readouts.gapDetail.textContent = quantities.xGap.toFixed(5);
   readouts.mobileGap.textContent = quantities.xGap.toFixed(5);
   readouts.lowestBandMin.textContent = quantities.lowestBandMinimum.toFixed(5);
   readouts.bandwidth.textContent = quantities.firstBandBandwidth.toFixed(5);
+  updateBandInsight(config, result, quantities);
   updatePhysicsExplanation(config, quantities, convergence);
   if (autoResult) {
     readouts.autoConvergenceStatus.textContent = `n_max = ${autoResult.nMax} (size = ${basisSizeFromNMax(autoResult.nMax)})`;
@@ -1398,8 +1520,11 @@ function toggleEmergencePlayback() {
 }
 
 function hideBandTooltip() {
+  hoverBandState = null;
   bandTooltip.hidden = true;
+  bandTooltip.classList.remove("is-visible");
   readouts.hover.textContent = "Hover over a band to inspect k and energy.";
+  refreshBandPlot();
 }
 
 function handleBandHover(event) {
@@ -1410,13 +1535,20 @@ function handleBandHover(event) {
     return;
   }
 
+  const hoverChanged =
+    !hoverBandState ||
+    hoverBandState.kIndex !== selection.kIndex ||
+    hoverBandState.bandIndex !== selection.bandIndex;
+  hoverBandState = selection;
+
   const kPoint = lastRenderResult.kPoints[selection.kIndex];
   const energy = lastRenderResult.eigenvalues[selection.kIndex][selection.bandIndex];
   bandTooltip.hidden = false;
+  bandTooltip.classList.add("is-visible");
   bandTooltip.innerHTML =
-    `band ${selection.bandIndex + 1}<br>` +
-    `k=(${kPoint[0].toFixed(3)}, ${kPoint[1].toFixed(3)})<br>` +
-    `E=${energy.toFixed(4)}`;
+    `Band ${selection.bandIndex + 1}<br>` +
+    `k = (${kPoint[0].toFixed(3)}, ${kPoint[1].toFixed(3)})<br>` +
+    `E = ${energy.toFixed(4)}`;
 
   const container = bandCanvas.parentElement;
   const containerRect = container.getBoundingClientRect();
@@ -1446,6 +1578,7 @@ function handleBandHover(event) {
   bandTooltip.style.left = `${left}px`;
   bandTooltip.style.top = `${top}px`;
   readouts.hover.textContent = `Band ${selection.bandIndex + 1} | k=(${kPoint[0].toFixed(3)}, ${kPoint[1].toFixed(3)}) | E=${energy.toFixed(4)}`;
+  if (hoverChanged) refreshBandPlot();
 }
 
 function pickNearestBandState(event) {
@@ -1480,6 +1613,7 @@ function handleBandClick(event) {
   const selection = pickNearestBandState(event);
   if (!selection || !lastRenderResult) return;
   selectedBandState = { ...selection, gridSize: 64 };
+  hoverBandState = selection;
   wavefunctionCache.delete(`${selection.kIndex}:${selection.bandIndex}:64`);
   realSpaceMode = "wavefunction";
   setMobileTab("realSpace");
